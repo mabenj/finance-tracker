@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
 
@@ -32,6 +32,13 @@ export function CategoryPicker({ snapshotId, categories, value, onChange, onCate
   const { showToast } = useToast();
   const [path, setPath] = useState<number[]>(() => buildPathToValue(categories, value));
   const [newLevel, setNewLevel] = useState<number | null>(null);
+
+  // Re-sync path when the controlled value changes from outside (e.g., parent switches expense).
+  // Uses categories prop (not allCats) because external value changes reference server-known categories.
+  useEffect(() => {
+    setPath(buildPathToValue(categories, value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
   const [newName, setNewName] = useState('');
   const [localCats, setLocalCats] = useState<Category[]>([]);
 

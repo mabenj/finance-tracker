@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
+import { formatEurCents, formatDeltaCents } from '../../lib/currency';
+import { computeNetWorthDelta } from '../../lib/net-worth';
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -12,6 +14,9 @@ interface Snapshot {
   id: number;
   year: number;
   month: number;
+  netWorth: number;
+  previousNetWorth: number | null;
+  delta: number | null;
 }
 
 interface Props {
@@ -28,7 +33,7 @@ export function SnapshotList({ snapshots, isLoading, onCreateClick }: Props) {
 
   const deleteMutation = trpc.snapshots.delete.useMutation({
     onSuccess: () => {
-      utils.snapshots.list.invalidate();
+      utils.dashboard.summary.invalidate();
       setPendingDeleteId(null);
     },
     onError: (err) => showToast(err.message),
@@ -57,22 +62,51 @@ export function SnapshotList({ snapshots, isLoading, onCreateClick }: Props) {
   return (
     <>
       <div className="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
-        {snapshots.map((snap) => (
-          <div key={snap.id} className="flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-50">
-            <button
-              onClick={() => navigate(`/snapshots/${snap.id}`)}
-              className="font-medium hover:text-blue-600 text-left"
-            >
-              {MONTH_NAMES[snap.month]} {snap.year}
-            </button>
-            <button
-              onClick={() => setPendingDeleteId(snap.id)}
-              className="text-sm text-red-600 hover:text-red-800"
-            >
-              Delete
-            </button>
-          </div>
-        ))}
+        {snapshots.map((snap) => {
+          const deltaInfo = snap.previousNetWorth !== null
+            ? computeNetWorthDelta(snap.netWorth, snap.previousNetWorth)
+            : null;
+
+          return (
+            <div key={snap.id} className="flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-50">
+              <button
+                onClick={() => navigate(`/snapshots/${snap.id}`)}
+                className="font-medium hover:text-blue-600 text-left min-w-[130px]"
+              >
+                {MONTH_NAMES[snap.month]} {snap.year}
+              </button>
+
+              <div className="flex items-center gap-4 flex-1 justify-end mr-4">
+                <span className="text-sm tabular-nums font-medium text-gray-800">
+                  {formatEurCents(snap.netWorth)}
+                </span>
+                {deltaInfo !== null ? (
+                  <span
+                    className={`text-sm tabular-nums ${
+                      deltaInfo.absolute >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}
+                  >
+                    {formatDeltaCents(deltaInfo.absolute)}
+                    {deltaInfo.percentage !== null && (
+                      <span className="ml-1 text-xs">
+                        ({deltaInfo.absolute >= 0 ? '+' : ''}{deltaInfo.percentage.toFixed(1)}%)
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="text-sm text-gray-400 italic">—</span>
+                )}
+              </div>
+
+              <button
+                onClick={() => setPendingDeleteId(snap.id)}
+                className="text-sm text-red-600 hover:text-red-800"
+              >
+                Delete
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       {/* Delete confirmation dialog */}

@@ -20,7 +20,7 @@ function defaultCreateMonth(snapshots: { year: number; month: number }[]) {
 }
 
 export function Dashboard() {
-  const { data: snapshots = [], isLoading } = trpc.snapshots.list.useQuery();
+  const { data: snapshots = [], isLoading } = trpc.dashboard.summary.useQuery();
   const utils = trpc.useContext();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -34,7 +34,7 @@ export function Dashboard() {
 
   const createMutation = trpc.snapshots.create.useMutation({
     onSuccess: () => {
-      utils.snapshots.list.invalidate();
+      utils.dashboard.summary.invalidate();
       setDialogOpen(false);
       setCreateError(null);
     },

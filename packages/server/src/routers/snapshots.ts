@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, publicProcedure, TRPCError } from '../trpc';
 import { carryForward } from '../services/carry-forward';
+import { findPrevSnapshot } from '../lib/find-prev-snapshot';
 
 interface SnapshotRow {
   id: number;
@@ -33,17 +34,14 @@ interface CategoryRow {
   parent_id: number | null;
 }
 
-function findPrevSnapshot(db: import('../trpc').Context['db'], year: number, month: number): SnapshotRow | null {
-  return (
-    db
-      .query<SnapshotRow, [number, number, number]>(
-        `SELECT id, year, month, created_at, updated_at FROM snapshots
-         WHERE (year < ? OR (year = ? AND month < ?))
-         ORDER BY year DESC, month DESC LIMIT 1`
-      )
-      .get(year, year, month) ?? null
-  );
+interface ExpenseRow {
+  id: number;
+  name: string;
+  amount: number;
+  category_id: number;
+  recurring: number;
 }
+
 
 export const snapshotsRouter = router({
   list: publicProcedure.query(({ ctx }) => {
@@ -95,11 +93,18 @@ export const snapshotsRouter = router({
         )
         .all(input.id);
 
+      const expenses = ctx.db
+        .query<ExpenseRow, [number]>(
+          'SELECT id, name, amount, category_id, recurring FROM expenses WHERE snapshot_id = ? ORDER BY id'
+        )
+        .all(input.id);
+
       return {
         ...snapshot,
         accounts,
         incomes,
         categories,
+        expenses,
         previousSnapshot: prevSnap
           ? { ...prevSnap, accounts: previousAccounts }
           : null,
