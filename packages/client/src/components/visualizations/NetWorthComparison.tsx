@@ -33,7 +33,7 @@ export function NetWorthComparison({ accounts, previousAccounts }: Props) {
   const chartData = buildAccountChartData(accounts, previousAccounts);
 
   const formatAxis = (v: number) =>
-    new Intl.NumberFormat('fi-FI', {
+    new Intl.NumberFormat('de-DE', {
       style: 'currency',
       currency: 'EUR',
       notation: 'compact',
