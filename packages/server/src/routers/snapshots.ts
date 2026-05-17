@@ -19,6 +19,20 @@ interface AccountRow {
   total_paid: number | null;
 }
 
+interface IncomeRow {
+  id: number;
+  name: string;
+  amount: number;
+  category: string;
+  recurring: number;
+}
+
+interface CategoryRow {
+  id: number;
+  name: string;
+  parent_id: number | null;
+}
+
 function findPrevSnapshot(db: import('../trpc').Context['db'], year: number, month: number): SnapshotRow | null {
   return (
     db
@@ -69,9 +83,23 @@ export const snapshotsRouter = router({
             .all(prevSnap.id)
         : [];
 
+      const incomes = ctx.db
+        .query<IncomeRow, [number]>(
+          'SELECT id, name, amount, category, recurring FROM incomes WHERE snapshot_id = ? ORDER BY id'
+        )
+        .all(input.id);
+
+      const categories = ctx.db
+        .query<CategoryRow, [number]>(
+          'SELECT id, name, parent_id FROM expense_categories WHERE snapshot_id = ? ORDER BY id'
+        )
+        .all(input.id);
+
       return {
         ...snapshot,
         accounts,
+        incomes,
+        categories,
         previousSnapshot: prevSnap
           ? { ...prevSnap, accounts: previousAccounts }
           : null,
