@@ -12,7 +12,7 @@ const ALLOWED_ORIGINS = new Set(['http://localhost:5173', 'http://localhost:3001
 // Resolve the frontend dist directory relative to this source file.
 // Bun runs TypeScript directly, so import.meta.dir is packages/server/src.
 // The Vite client build outputs to packages/client/dist.
-const DIST_DIR = resolve(join(import.meta.dir, '..', '..', '..', 'client', 'dist'));
+const DIST_DIR = resolve(join(import.meta.dir, '..', '..', 'client', 'dist'));
 
 function corsHeaders(origin: string | null): HeadersInit {
   if (origin && ALLOWED_ORIGINS.has(origin)) {
