@@ -69,7 +69,7 @@ export function Dashboard() {
         </button>
       </div>
 
-      <SnapshotList snapshots={snapshots} isLoading={isLoading} />
+      <SnapshotList snapshots={snapshots} isLoading={isLoading} onCreateClick={openDialog} />
 
       {/* Create dialog */}
       {dialogOpen && (
@@ -97,6 +97,7 @@ export function Dashboard() {
 
               <input
                 type="number"
+                min="1"
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
                 className="w-24 border border-gray-300 rounded px-2 py-1.5 text-sm"

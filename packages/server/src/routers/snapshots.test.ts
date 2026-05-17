@@ -57,4 +57,17 @@ describe('snapshots router', () => {
     const full = await caller.snapshots.get({ id: snap.id });
     expect(full.previousSnapshot).toBeNull();
   });
+
+  test('get re-resolves previousSnapshot after middle snapshot is deleted (C5 / §3.1)', async () => {
+    const caller = makeTestCaller();
+    const jan = await caller.snapshots.create({ year: 2026, month: 1 });
+    const feb = await caller.snapshots.create({ year: 2026, month: 2 });
+    const mar = await caller.snapshots.create({ year: 2026, month: 3 });
+
+    await caller.snapshots.delete({ id: feb.id });
+
+    const marFull = await caller.snapshots.get({ id: mar.id });
+    expect(marFull.previousSnapshot).not.toBeNull();
+    expect(marFull.previousSnapshot!.id).toBe(jan.id);
+  });
 });

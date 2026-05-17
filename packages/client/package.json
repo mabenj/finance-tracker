@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "bun test"
   },
   "dependencies": {
     "@finance-tracker/server": "workspace:*",
@@ -14,7 +15,8 @@
     "@trpc/react-query": "^10.45.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.24.0"
+    "react-router-dom": "^6.24.0",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.1",

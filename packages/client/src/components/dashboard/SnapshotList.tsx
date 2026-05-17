@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { trpc } from '../../lib/trpc';
+import { useToast } from '../../lib/toast';
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -15,10 +17,13 @@ interface Snapshot {
 interface Props {
   snapshots: Snapshot[];
   isLoading: boolean;
+  onCreateClick: () => void;
 }
 
-export function SnapshotList({ snapshots, isLoading }: Props) {
+export function SnapshotList({ snapshots, isLoading, onCreateClick }: Props) {
+  const navigate = useNavigate();
   const utils = trpc.useContext();
+  const { showToast } = useToast();
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
 
   const deleteMutation = trpc.snapshots.delete.useMutation({
@@ -26,6 +31,7 @@ export function SnapshotList({ snapshots, isLoading }: Props) {
       utils.snapshots.list.invalidate();
       setPendingDeleteId(null);
     },
+    onError: (err) => showToast(err.message),
   });
 
   const pendingSnap = snapshots.find((s) => s.id === pendingDeleteId) ?? null;
@@ -37,8 +43,13 @@ export function SnapshotList({ snapshots, isLoading }: Props) {
   if (snapshots.length === 0) {
     return (
       <div className="text-center py-16 text-gray-500">
-        <p className="text-lg font-medium mb-1">No snapshots yet</p>
-        <p className="text-sm">Create your first snapshot to get started.</p>
+        <p className="text-lg font-medium mb-3">No snapshots yet</p>
+        <button
+          onClick={onCreateClick}
+          className="bg-blue-600 text-white px-5 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+        >
+          Create your first snapshot
+        </button>
       </div>
     );
   }
@@ -48,9 +59,12 @@ export function SnapshotList({ snapshots, isLoading }: Props) {
       <div className="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
         {snapshots.map((snap) => (
           <div key={snap.id} className="flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-50">
-            <span className="font-medium">
+            <button
+              onClick={() => navigate(`/snapshots/${snap.id}`)}
+              className="font-medium hover:text-blue-600 text-left"
+            >
               {MONTH_NAMES[snap.month]} {snap.year}
-            </span>
+            </button>
             <button
               onClick={() => setPendingDeleteId(snap.id)}
               className="text-sm text-red-600 hover:text-red-800"

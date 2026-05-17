@@ -3,6 +3,8 @@ import { httpBatchLink } from '@trpc/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { trpc } from './lib/trpc';
 import { Dashboard } from './pages/Dashboard';
+import { Snapshot } from './pages/Snapshot';
+import { ToastProvider } from './lib/toast';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,11 +20,14 @@ export function App() {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-          </Routes>
-        </BrowserRouter>
+        <ToastProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/snapshots/:id" element={<Snapshot />} />
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
       </QueryClientProvider>
     </trpc.Provider>
   );
