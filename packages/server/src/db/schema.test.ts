@@ -1,10 +1,10 @@
 import { describe, test, expect, beforeEach } from 'bun:test';
 import { Database } from 'bun:sqlite';
-import { initDb } from './schema';
+import { runMigrations } from './schema';
 
 function makeDb() {
   const db = new Database(':memory:');
-  initDb(db);
+  runMigrations(db);
   return db;
 }
 
@@ -21,6 +21,40 @@ describe('schema', () => {
     expect(tables).toContain('expense_categories');
     expect(tables).toContain('expenses');
     expect(tables).toContain('incomes');
+    expect(tables).toContain('migrations');
+  });
+
+  test('records migration_1 in migrations table', () => {
+    const db = makeDb();
+    const row = db.query<{ id: number; applied_at: string }, []>('SELECT id, applied_at FROM migrations').get();
+    expect(row?.id).toBe(1);
+    expect(typeof row?.applied_at).toBe('string');
+  });
+
+  test('does not re-run migrations on second call', () => {
+    const db = makeDb();
+    runMigrations(db); // second call — should be a no-op
+    const count = db.query<{ n: number }, []>('SELECT COUNT(*) as n FROM migrations').get()!.n;
+    expect(count).toBe(1);
+  });
+
+  test('migration files sort in numeric not lexicographic order', () => {
+    const files = ['migration_10.sql', 'migration_2.sql', 'migration_9.sql', 'migration_1.sql'];
+    const getId = (f: string) => parseInt(f.match(/^migration_(\d+)\.sql$/)![1]);
+    const sorted = [...files].sort((a, b) => getId(a) - getId(b));
+    expect(sorted).toEqual(['migration_1.sql', 'migration_2.sql', 'migration_9.sql', 'migration_10.sql']);
+  });
+
+  test('failed migration SQL rolls back the migration record', () => {
+    const db = makeDb();
+    expect(() => {
+      db.transaction(() => {
+        db.exec('THIS IS NOT VALID SQL!!!');
+        db.run('INSERT INTO migrations (id) VALUES (?)', [99]);
+      })();
+    }).toThrow();
+    const recorded = db.query<{ id: number }, []>('SELECT id FROM migrations WHERE id = 99').get();
+    expect(recorded).toBeNull();
   });
 
   test('enforces UNIQUE(year, month) on snapshots', () => {

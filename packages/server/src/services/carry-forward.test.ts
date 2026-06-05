@@ -1,11 +1,11 @@
 import { describe, test, expect } from 'bun:test';
 import { Database } from 'bun:sqlite';
-import { initDb } from '../db/schema';
+import { runMigrations } from '../db/schema';
 import { carryForward } from './carry-forward';
 
 function makeDb() {
   const db = new Database(':memory:');
-  initDb(db);
+  runMigrations(db);
   return db;
 }
 

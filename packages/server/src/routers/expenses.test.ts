@@ -1,11 +1,11 @@
 import { describe, test, expect } from 'bun:test';
 import { Database } from 'bun:sqlite';
-import { initDb } from '../db/schema';
+import { runMigrations } from '../db/schema';
 import { appRouter } from './index';
 
 function makeTestCaller() {
   const db = new Database(':memory:');
-  initDb(db);
+  runMigrations(db);
   const caller = appRouter.createCaller({ db });
   return { caller, db };
 }
