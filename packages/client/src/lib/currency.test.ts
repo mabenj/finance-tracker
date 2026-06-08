@@ -3,14 +3,14 @@ import { formatEurCents, centsToEuroStr, sanitizeEuroInput, eurosToCents } from 
 
 describe('formatEurCents', () => {
   test('formats a typical amount with thousands separator and no decimals', () => {
-    const expected = new Intl.NumberFormat('de-DE', {
+    const expected = new Intl.NumberFormat('fi-FI', {
       style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0,
     }).format(1235);
     expect(formatEurCents(123456)).toBe(expected); // 1234,56 € rounds to 1.235 €
   });
 
   test('formats zero with no decimals', () => {
-    const expected = new Intl.NumberFormat('de-DE', {
+    const expected = new Intl.NumberFormat('fi-FI', {
       style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0,
     }).format(0);
     expect(formatEurCents(0)).toBe(expected);
