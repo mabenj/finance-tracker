@@ -7,6 +7,22 @@ import { CategoryPicker } from './CategoryPicker';
 import { ReorderButtons } from './ReorderButtons';
 import { t } from '../../lib/strings';
 
+// Inline SVG chevron — matches the project's no-icon-library convention
+// (see ReorderButtons.tsx). Points right when collapsed, rotates down when expanded.
+function IconChevron({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`}
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path fillRule="evenodd" d="M7.3 5.3a1 1 0 011.4 0l4 4a1 1 0 010 1.4l-4 4a1 1 0 01-1.4-1.4L10.6 10 7.3 6.7a1 1 0 010-1.4z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
 interface Category {
   id: number;
   name: string;
@@ -416,24 +432,27 @@ function CategoryNodeRow({
   return (
     <>
       {/* Category header row */}
-      <div className="flex items-stretch bg-gray-50 border-b border-gray-200 hover:bg-gray-100 pl-2">
+      <div
+        onClick={() => { if (hasContent && !renaming) onToggleCollapse(node.cat.id); }}
+        className={`flex items-stretch bg-gray-50 border-b border-gray-200 hover:bg-gray-100 pl-2 ${hasContent && !renaming ? 'cursor-pointer' : ''}`}
+      >
         <Indent depth={depth} />
         <div className="flex items-center justify-between flex-1 min-w-0 py-1.5 pr-3">
           <span className="flex items-center min-w-0">
             <span className="w-5 shrink-0 flex items-center text-xs">
               {hasContent && (
                 <button
-                  onClick={() => onToggleCollapse(node.cat.id)}
+                  onClick={(e) => { e.stopPropagation(); onToggleCollapse(node.cat.id); }}
                   aria-label={collapsed ? t.expandCategory : t.collapseCategory}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 flex items-center"
                 >
-                  {collapsed ? '▶' : '▼'}
+                  <IconChevron expanded={!collapsed} />
                 </button>
               )}
             </span>
 
             {renaming ? (
-              <span className="flex items-center gap-2 flex-1">
+              <span className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
                 <input
                   autoFocus
                   value={renameName}
@@ -466,7 +485,7 @@ function CategoryNodeRow({
           <span className="flex items-center gap-3 shrink-0 ml-4">
             <span className={`text-sm tabular-nums font-medium ${hasContent ? 'text-gray-600' : 'text-gray-400'}`}>{formatEurCents(subtotal)}</span>
             {editMode && !renaming && (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                 <ReorderButtons
                   canMoveUp={index > 0}
                   canMoveDown={index < siblingIds.length - 1}
