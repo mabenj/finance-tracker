@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
-import { formatEurCents } from '../../lib/currency';
+import { formatEurCents, centsToEuroStr, eurosToCents, sanitizeEuroInput } from '../../lib/currency';
 import { getIncomeCategories } from '../../lib/income-autocomplete';
 
 interface Income {
@@ -26,17 +26,7 @@ interface RowEdit {
   recurring: boolean;
 }
 
-const BLANK_EDIT: RowEdit = { name: '', amount: '0.00', category: '', recurring: false };
-
-function centsToStr(cents: number) {
-  return (cents / 100).toFixed(2);
-}
-
-function strToCents(val: string): number | null {
-  const n = Number(val);
-  if (isNaN(n) || !isFinite(n)) return null;
-  return Math.round(n * 100);
-}
+const BLANK_EDIT: RowEdit = { name: '', amount: '0', category: '', recurring: false };
 
 function IconPencil() {
   return (
@@ -93,16 +83,16 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
     setEditingId(inc.id);
     setRow({
       name: inc.name,
-      amount: centsToStr(inc.amount),
+      amount: centsToEuroStr(inc.amount),
       category: inc.category,
       recurring: inc.recurring === 1,
     });
   }
 
   function saveRow(id?: number) {
-    const amountCents = strToCents(row.amount);
+    const amountCents = eurosToCents(row.amount);
     if (amountCents === null) {
-      showToast('Invalid amount — enter a number like 1234.56');
+      showToast('Invalid amount — enter a whole euro amount');
       return;
     }
     upsert.mutate({
@@ -118,6 +108,12 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
   function field(key: keyof RowEdit) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
       setRow((r) => ({ ...r, [key]: e.target.value }));
+  }
+
+  // Currency inputs only ever hold an integer-euro string (hard-block decimals, truncate pasted fractions).
+  function currencyField(key: keyof RowEdit) {
+    return (e: React.ChangeEvent<HTMLInputElement>) =>
+      setRow((r) => ({ ...r, [key]: sanitizeEuroInput(e.target.value) }));
   }
 
   function onKey(save: () => void) {
@@ -138,10 +134,10 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
         </td>
         <td className="py-1 pr-2">
           <input
-            type="number" step="0.01" min="0"
+            type="number" step="1" min="0"
             className={`${inputCls} text-right`}
             value={row.amount}
-            onChange={field('amount')}
+            onChange={currencyField('amount')}
             onKeyDown={onKey(save)}
           />
         </td>

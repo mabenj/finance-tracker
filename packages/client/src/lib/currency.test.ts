@@ -1,19 +1,66 @@
 import { describe, test, expect } from 'bun:test';
-import { formatEurCents } from './currency';
+import { formatEurCents, centsToEuroStr, sanitizeEuroInput, eurosToCents } from './currency';
 
 describe('formatEurCents', () => {
-  test('formats a typical amount with thousands separator and 2 decimal places', () => {
-    const expected = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(1234.56);
-    expect(formatEurCents(123456)).toBe(expected);
+  test('formats a typical amount with thousands separator and no decimals', () => {
+    const expected = new Intl.NumberFormat('de-DE', {
+      style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0,
+    }).format(1235);
+    expect(formatEurCents(123456)).toBe(expected); // 1234,56 € rounds to 1.235 €
   });
 
-  test('formats zero as 0,00 €', () => {
-    const expected = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(0);
+  test('formats zero with no decimals', () => {
+    const expected = new Intl.NumberFormat('de-DE', {
+      style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0,
+    }).format(0);
     expect(formatEurCents(0)).toBe(expected);
   });
 
-  test('formats 1 cent as 0,01 €', () => {
-    const expected = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(0.01);
-    expect(formatEurCents(1)).toBe(expected);
+  test('rounds sub-euro cents to the nearest euro (display only)', () => {
+    // 1 cent → 0 €, 50 cents → 1 € (banker-free round-half-up via Intl)
+    expect(formatEurCents(1)).toBe(formatEurCents(0));
+    expect(formatEurCents(1267)).toBe(formatEurCents(1300));
+  });
+});
+
+describe('centsToEuroStr', () => {
+  test('rounds stored cents to a whole-euro string for edit prefill', () => {
+    expect(centsToEuroStr(0)).toBe('0');
+    expect(centsToEuroStr(1200)).toBe('12');
+    expect(centsToEuroStr(1234)).toBe('12'); // 12.34 rounds down
+    expect(centsToEuroStr(1267)).toBe('13'); // 12.67 rounds up
+    expect(centsToEuroStr(1250)).toBe('13'); // 12.50 rounds up
+  });
+});
+
+describe('sanitizeEuroInput', () => {
+  test('keeps a plain integer', () => {
+    expect(sanitizeEuroInput('1234')).toBe('1234');
+  });
+  test('truncates the fraction from a pasted decimal (comma or dot)', () => {
+    expect(sanitizeEuroInput('12,50')).toBe('12');
+    expect(sanitizeEuroInput('12.99')).toBe('12');
+  });
+  test('strips sign, letters and stray characters', () => {
+    expect(sanitizeEuroInput('-5')).toBe('5');
+    expect(sanitizeEuroInput('1a2b')).toBe('12');
+  });
+  test('empty stays empty', () => {
+    expect(sanitizeEuroInput('')).toBe('');
+  });
+});
+
+describe('eurosToCents', () => {
+  test('multiplies a whole-euro string by 100', () => {
+    expect(eurosToCents('0')).toBe(0);
+    expect(eurosToCents('12')).toBe(1200);
+    expect(eurosToCents('1234')).toBe(123400);
+  });
+  test('returns null for empty or non-numeric input', () => {
+    expect(eurosToCents('')).toBeNull();
+    expect(eurosToCents('abc')).toBeNull();
+  });
+  test('returns null when the value exceeds safe-integer precision', () => {
+    expect(eurosToCents('999999999999999')).toBeNull();
   });
 });

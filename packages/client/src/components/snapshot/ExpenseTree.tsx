@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
-import { formatEurCents } from '../../lib/currency';
+import { formatEurCents, centsToEuroStr, eurosToCents, sanitizeEuroInput } from '../../lib/currency';
 import { sumTree } from '../../lib/sum-tree';
 import { CategoryPicker } from './CategoryPicker';
 
@@ -86,7 +86,7 @@ function ExpenseRow({
   const { showToast } = useToast();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(expense.name);
-  const [amount, setAmount] = useState((expense.amount / 100).toFixed(2));
+  const [amount, setAmount] = useState(centsToEuroStr(expense.amount));
   const [recurring, setRecurring] = useState(expense.recurring === 1);
   const [categoryId, setCategoryId] = useState(expense.category_id);
 
@@ -101,8 +101,8 @@ function ExpenseRow({
   });
 
   function handleSave() {
-    const parsedAmount = Math.round(parseFloat(amount) * 100);
-    if (isNaN(parsedAmount) || parsedAmount < 0) { showToast('Amount must be zero or positive'); return; }
+    const parsedAmount = eurosToCents(amount);
+    if (parsedAmount === null || parsedAmount < 0) { showToast('Amount must be zero or positive'); return; }
     upsertMut.mutate({
       id: expense.id,
       snapshotId,
@@ -130,11 +130,11 @@ function ExpenseRow({
             <input
               type="number"
               min="0"
-              step="0.01"
+              step="1"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAmount(sanitizeEuroInput(e.target.value))}
               className="border border-gray-300 rounded px-2 py-1 text-sm w-28 text-right"
-              placeholder="0.00"
+              placeholder="0"
             />
           </div>
           <div className="flex items-center gap-3 text-sm">
@@ -240,9 +240,9 @@ function AddExpenseRow({
   });
 
   function handleSave() {
-    const parsedAmount = Math.round(parseFloat(amount) * 100);
+    const parsedAmount = eurosToCents(amount);
     if (!name.trim()) { showToast('Name is required'); return; }
-    if (isNaN(parsedAmount) || parsedAmount < 0) { showToast('Amount must be zero or positive'); return; }
+    if (parsedAmount === null || parsedAmount < 0) { showToast('Amount must be zero or positive'); return; }
     upsertMut.mutate({ snapshotId, name: name.trim(), amount: parsedAmount, categoryId, recurring });
   }
 
@@ -262,11 +262,11 @@ function AddExpenseRow({
           <input
             type="number"
             min="0"
-            step="0.01"
+            step="1"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => setAmount(sanitizeEuroInput(e.target.value))}
             className="border border-gray-300 rounded px-2 py-1 text-sm w-28 text-right"
-            placeholder="0.00"
+            placeholder="0"
           />
         </div>
         <div className="flex items-center gap-3 text-sm">

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
-import { formatEurCents } from '../../lib/currency';
+import { formatEurCents, centsToEuroStr, eurosToCents, sanitizeEuroInput } from '../../lib/currency';
 
 interface Account {
   id: number;
@@ -31,20 +31,9 @@ const BLANK_EDIT: RowEdit = {
   name: '',
   type: 'asset',
   category: '',
-  balance: '0.00',
+  balance: '0',
   totalPaid: '',
 };
-
-function centsToStr(cents: number) {
-  return (cents / 100).toFixed(2);
-}
-
-// Returns null for non-numeric input so callers can show a validation error (B5).
-function strToCents(val: string): number | null {
-  const n = Number(val);
-  if (isNaN(n) || !isFinite(n)) return null;
-  return Math.round(n * 100);
-}
 
 // Inline SVG icons — avoids an icon library dependency
 function IconPencil() {
@@ -107,20 +96,20 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
       name: acc.name,
       type: acc.type as 'asset' | 'liability',
       category: acc.category,
-      balance: centsToStr(acc.balance),
-      totalPaid: acc.total_paid !== null ? centsToStr(acc.total_paid) : '',
+      balance: centsToEuroStr(acc.balance),
+      totalPaid: acc.total_paid !== null ? centsToEuroStr(acc.total_paid) : '',
     });
   }
 
   function saveRow(id?: number) {
-    const balanceCents = strToCents(row.balance);
+    const balanceCents = eurosToCents(row.balance);
     if (balanceCents === null) {
-      showToast('Invalid balance — enter a number like 1234.56');
+      showToast('Invalid balance — enter a whole euro amount');
       return;
     }
-    const totalPaidCents = row.totalPaid !== '' ? strToCents(row.totalPaid) : null;
+    const totalPaidCents = row.totalPaid !== '' ? eurosToCents(row.totalPaid) : null;
     if (row.totalPaid !== '' && totalPaidCents === null) {
-      showToast('Invalid total paid — enter a number like 1234.56');
+      showToast('Invalid total paid — enter a whole euro amount');
       return;
     }
     upsert.mutate({
@@ -137,6 +126,12 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
   function field(key: keyof RowEdit) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setRow((r) => ({ ...r, [key]: e.target.value }));
+  }
+
+  // Currency inputs only ever hold an integer-euro string (hard-block decimals, truncate pasted fractions).
+  function currencyField(key: keyof RowEdit) {
+    return (e: React.ChangeEvent<HTMLInputElement>) =>
+      setRow((r) => ({ ...r, [key]: sanitizeEuroInput(e.target.value) }));
   }
 
   function onKey(save: () => void) {
@@ -166,10 +161,10 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
           <input className={inputCls} value={row.category} onChange={field('category')} onKeyDown={onKey(save)} placeholder="Category" />
         </td>
         <td className="py-1 pr-2">
-          <input type="number" step="0.01" min="0" className={`${inputCls} text-right`} value={row.balance} onChange={field('balance')} onKeyDown={onKey(save)} />
+          <input type="number" step="1" min="0" className={`${inputCls} text-right`} value={row.balance} onChange={currencyField('balance')} onKeyDown={onKey(save)} />
         </td>
         <td className="py-1 pr-2">
-          <input type="number" step="0.01" min="0" className={`${inputCls} text-right`} value={row.totalPaid} onChange={field('totalPaid')} onKeyDown={onKey(save)} placeholder="—" />
+          <input type="number" step="1" min="0" className={`${inputCls} text-right`} value={row.totalPaid} onChange={currencyField('totalPaid')} onKeyDown={onKey(save)} placeholder="—" />
         </td>
         <td className="py-1 pr-3 whitespace-nowrap">
           <button
