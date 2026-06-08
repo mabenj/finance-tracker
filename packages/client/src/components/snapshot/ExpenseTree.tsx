@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
 import { formatEurCents } from '../../lib/currency';
@@ -547,6 +547,14 @@ function CategoryNodeRow({
 
 export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpdate }: Props) {
   const [localCategories, setLocalCategories] = useState<Category[]>([]);
+
+  // Server categories are authoritative & complete; once a refetch lands,
+  // the local optimistic cache is redundant. Clearing it also drops
+  // session-created categories that have since been deleted server-side.
+  useEffect(() => {
+    setLocalCategories([]);
+  }, [categories]);
+
   const [addingTopCat, setAddingTopCat] = useState(false);
   const [topCatName, setTopCatName] = useState('');
   const { showToast } = useToast();

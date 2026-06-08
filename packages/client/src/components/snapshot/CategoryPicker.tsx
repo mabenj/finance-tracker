@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
 
@@ -40,19 +40,12 @@ export function CategoryPicker({ snapshotId, categories, value, onChange, onCate
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
   const [newName, setNewName] = useState('');
-  const [localCats, setLocalCats] = useState<Category[]>([]);
 
-  // Merge prop categories with locally created ones (deduped by id)
-  const allCats = useMemo(() => {
-    const byId = new Map<number, Category>();
-    for (const c of categories) byId.set(c.id, c);
-    for (const c of localCats) byId.set(c.id, c);
-    return Array.from(byId.values());
-  }, [categories, localCats]);
-
+  // The `categories` prop is the parent's merged list (server + its optimistic
+  // cache), so a category created here shows up via onCategoriesUpdate without
+  // the picker needing its own local cache.
   const create = trpc.categories.create.useMutation({
     onSuccess: (newCat) => {
-      setLocalCats((prev) => [...prev, newCat]);
       onCategoriesUpdate(newCat);
       const level =
         newCat.parent_id === null ? 0 : path.findIndex((id) => id === newCat.parent_id) + 1;
@@ -66,10 +59,10 @@ export function CategoryPicker({ snapshotId, categories, value, onChange, onCate
   });
 
   function getCatsAt(level: number): Category[] {
-    if (level === 0) return allCats.filter((c) => c.parent_id === null);
+    if (level === 0) return categories.filter((c) => c.parent_id === null);
     const parentId = path[level - 1];
     if (parentId === undefined) return [];
-    return allCats.filter((c) => c.parent_id === parentId);
+    return categories.filter((c) => c.parent_id === parentId);
   }
 
   function handleChange(level: number, raw: string) {
