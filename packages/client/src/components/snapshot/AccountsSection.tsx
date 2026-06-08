@@ -149,10 +149,10 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
   const inputCls = 'border border-gray-300 rounded px-2 py-1 text-sm w-full';
 
   // B2/B3: edit row uses checkmark (confirm) + X icons instead of text "Save"/"Cancel"
-  function EditRow({ id }: { id?: number }) {
+  function renderEditRow(id?: number) {
     const save = () => saveRow(id);
     return (
-      <tr className="border-b border-blue-100 bg-blue-50">
+      <tr key={id ?? 'new'} className="border-b border-blue-100 bg-blue-50">
         <td className="py-1 pr-2 pl-3">
           <input className={inputCls} value={row.name} onChange={field('name')} onKeyDown={onKey(save)} autoFocus placeholder="Account name" />
         </td>
@@ -221,7 +221,7 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
           <tbody>
             {accounts.map((acc) =>
               editingId === acc.id ? (
-                <EditRow key={acc.id} id={acc.id} />
+                renderEditRow(acc.id)
               ) : (
                 <tr key={acc.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                   <td className="py-2 pl-3 pr-4">{acc.name}</td>
@@ -253,7 +253,7 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
                 </tr>
               )
             )}
-            {editingId === 'new' && <EditRow />}
+            {editingId === 'new' && renderEditRow()}
           </tbody>
         </table>
 

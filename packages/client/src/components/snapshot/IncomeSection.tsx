@@ -129,10 +129,10 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
 
   const inputCls = 'border border-gray-300 rounded px-2 py-1 text-sm w-full';
 
-  function EditRow({ id }: { id?: number }) {
+  function renderEditRow(id?: number) {
     const save = () => saveRow(id);
     return (
-      <tr className="border-b border-blue-100 bg-blue-50">
+      <tr key={id ?? 'new'} className="border-b border-blue-100 bg-blue-50">
         <td className="py-1 pr-2 pl-3">
           <input className={inputCls} value={row.name} onChange={field('name')} onKeyDown={onKey(save)} autoFocus placeholder="Income name" />
         </td>
@@ -220,7 +220,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
           <tbody>
             {incomes.map((inc) =>
               editingId === inc.id ? (
-                <EditRow key={inc.id} id={inc.id} />
+                renderEditRow(inc.id)
               ) : (
                 <tr key={inc.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                   <td className="py-2 pl-3 pr-4">{inc.name}</td>
@@ -254,7 +254,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
                 </tr>
               )
             )}
-            {editingId === 'new' && <EditRow />}
+            {editingId === 'new' && renderEditRow()}
           </tbody>
           {(incomes.length > 0 || editingId === 'new') && (
             <tfoot>
@@ -262,7 +262,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
                 <td className="py-2 pl-3 pr-4 text-sm font-medium text-gray-500" colSpan={editMode ? 4 : 3}>
                   Total
                 </td>
-                <td className="py-2 pr-4 text-right tabular-nums font-medium" colSpan={editMode ? 1 : 1}>
+                <td className="py-2 pr-4 text-right tabular-nums font-medium">
                   {formatEurCents(total)}
                 </td>
                 {editMode && <td />}
