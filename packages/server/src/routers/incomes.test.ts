@@ -251,3 +251,66 @@ describe('incomes router', () => {
     expect(full.incomes[0].name).toBe('Salary');
   });
 });
+
+describe('incomes reorder', () => {
+  test('reorder applies the given order', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const ids: number[] = [];
+    for (const name of ['A', 'B', 'C']) {
+      const inc = await caller.incomes.upsert({ snapshotId: snap.id, name, amount: 1000, category: 'x', recurring: false });
+      ids.push(inc.id);
+    }
+    const reordered = [ids[2], ids[0], ids[1]];
+
+    await caller.incomes.reorder({ snapshotId: snap.id, orderedIds: reordered });
+
+    const full = await caller.snapshots.get({ id: snap.id });
+    expect(full.incomes.map((i) => i.id)).toEqual(reordered);
+  });
+
+  test('reorder of an empty list is a no-op', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    await caller.incomes.reorder({ snapshotId: snap.id, orderedIds: [] });
+    const full = await caller.snapshots.get({ id: snap.id });
+    expect(full.incomes).toEqual([]);
+  });
+
+  test('reorder of a single income is a no-op', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const inc = await caller.incomes.upsert({ snapshotId: snap.id, name: 'Solo', amount: 1000, category: 'x', recurring: false });
+    await caller.incomes.reorder({ snapshotId: snap.id, orderedIds: [inc.id] });
+    const full = await caller.snapshots.get({ id: snap.id });
+    expect(full.incomes.map((i) => i.id)).toEqual([inc.id]);
+  });
+
+  test('reorder rejects when an id is missing', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const ids: number[] = [];
+    for (const name of ['A', 'B', 'C']) {
+      const inc = await caller.incomes.upsert({ snapshotId: snap.id, name, amount: 1000, category: 'x', recurring: false });
+      ids.push(inc.id);
+    }
+    await expect(
+      caller.incomes.reorder({ snapshotId: snap.id, orderedIds: ids.slice(1) })
+    ).rejects.toThrow();
+  });
+
+  test('a newly created income is appended last after a reorder', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const ids: number[] = [];
+    for (const name of ['A', 'B', 'C']) {
+      const inc = await caller.incomes.upsert({ snapshotId: snap.id, name, amount: 1000, category: 'x', recurring: false });
+      ids.push(inc.id);
+    }
+    await caller.incomes.reorder({ snapshotId: snap.id, orderedIds: [ids[2], ids[1], ids[0]] });
+    const added = await caller.incomes.upsert({ snapshotId: snap.id, name: 'D', amount: 1000, category: 'x', recurring: false });
+
+    const full = await caller.snapshots.get({ id: snap.id });
+    expect(full.incomes.map((i) => i.id)).toEqual([ids[2], ids[1], ids[0], added.id]);
+  });
+});

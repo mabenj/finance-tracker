@@ -285,3 +285,66 @@ describe('expenses router', () => {
     expect(full.expenses[0].category_id).toBe(cat.id);
   });
 });
+
+describe('expenses reorder', () => {
+  test('reorder applies order within a category', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const cat = await caller.categories.create({ snapshotId: snap.id, name: 'Housing' });
+    const ids: number[] = [];
+    for (const name of ['A', 'B', 'C']) {
+      const e = await caller.expenses.upsert({ snapshotId: snap.id, name, amount: 1000, categoryId: cat.id, recurring: false });
+      ids.push(e.id);
+    }
+    const reordered = [ids[2], ids[0], ids[1]];
+
+    await caller.expenses.reorder({ snapshotId: snap.id, categoryId: cat.id, orderedIds: reordered });
+
+    const full = await caller.snapshots.get({ id: snap.id });
+    const inCat = full.expenses.filter((e) => e.category_id === cat.id).map((e) => e.id);
+    expect(inCat).toEqual(reordered);
+  });
+
+  test('reorder rejects an expense from a different category', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const catA = await caller.categories.create({ snapshotId: snap.id, name: 'A' });
+    const catB = await caller.categories.create({ snapshotId: snap.id, name: 'B' });
+    const a = await caller.expenses.upsert({ snapshotId: snap.id, name: 'a', amount: 1000, categoryId: catA.id, recurring: false });
+    const b = await caller.expenses.upsert({ snapshotId: snap.id, name: 'b', amount: 1000, categoryId: catB.id, recurring: false });
+    await expect(
+      caller.expenses.reorder({ snapshotId: snap.id, categoryId: catA.id, orderedIds: [a.id, b.id] })
+    ).rejects.toThrow();
+  });
+
+  test('reorder rejects when a sibling is missing', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const cat = await caller.categories.create({ snapshotId: snap.id, name: 'Housing' });
+    const ids: number[] = [];
+    for (const name of ['A', 'B']) {
+      const e = await caller.expenses.upsert({ snapshotId: snap.id, name, amount: 1000, categoryId: cat.id, recurring: false });
+      ids.push(e.id);
+    }
+    await expect(
+      caller.expenses.reorder({ snapshotId: snap.id, categoryId: cat.id, orderedIds: [ids[0]] })
+    ).rejects.toThrow();
+  });
+
+  test('moving an expense to another category places it last there', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const catA = await caller.categories.create({ snapshotId: snap.id, name: 'A' });
+    const catB = await caller.categories.create({ snapshotId: snap.id, name: 'B' });
+    // `moved` is created first (lowest id), so id-order alone would place it first in B.
+    const moved = await caller.expenses.upsert({ snapshotId: snap.id, name: 'moved', amount: 1000, categoryId: catA.id, recurring: false });
+    const b1 = await caller.expenses.upsert({ snapshotId: snap.id, name: 'b1', amount: 1000, categoryId: catB.id, recurring: false });
+    const b2 = await caller.expenses.upsert({ snapshotId: snap.id, name: 'b2', amount: 1000, categoryId: catB.id, recurring: false });
+
+    await caller.expenses.upsert({ id: moved.id, snapshotId: snap.id, name: 'moved', amount: 1000, categoryId: catB.id, recurring: false });
+
+    const full = await caller.snapshots.get({ id: snap.id });
+    const inB = full.expenses.filter((e) => e.category_id === catB.id).map((e) => e.id);
+    expect(inB).toEqual([b1.id, b2.id, moved.id]);
+  });
+});

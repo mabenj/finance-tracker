@@ -6,12 +6,14 @@ interface AccountRow {
   category: string;
   balance: number;
   total_paid: number | null;
+  position: number;
 }
 
 interface CategoryRow {
   id: number;
   name: string;
   parent_id: number | null;
+  position: number;
 }
 
 interface ExpenseRow {
@@ -28,7 +30,7 @@ interface IncomeRow {
   recurring: number;
 }
 
-const DEFAULT_ACCOUNTS: AccountRow[] = [
+const DEFAULT_ACCOUNTS: Omit<AccountRow, 'position'>[] = [
   { name: 'Mortgage',              type: 'liability', category: 'debt',        balance: 0, total_paid: 0    },
   { name: 'Student Loan',          type: 'liability', category: 'debt',        balance: 0, total_paid: 0    },
   { name: 'Credit Card',           type: 'liability', category: 'debt',        balance: 0, total_paid: null },
@@ -45,38 +47,40 @@ export function carryForward(
   previousSnapshotId: number | null
 ): void {
   const insertAccount = db.prepare(
-    'INSERT INTO accounts (snapshot_id, name, type, category, balance, total_paid) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO accounts (snapshot_id, name, type, category, balance, total_paid, position) VALUES (?, ?, ?, ?, ?, ?, ?)'
   );
 
   if (previousSnapshotId === null) {
-    for (const acc of DEFAULT_ACCOUNTS) {
-      insertAccount.run(newSnapshotId, acc.name, acc.type, acc.category, acc.balance, acc.total_paid);
-    }
+    DEFAULT_ACCOUNTS.forEach((acc, index) => {
+      insertAccount.run(newSnapshotId, acc.name, acc.type, acc.category, acc.balance, acc.total_paid, index);
+    });
     return;
   }
 
-  // Step 1: Copy all accounts
+  // Step 1: Copy all accounts, preserving manual order via position.
   const prevAccounts = db
     .query<AccountRow, [number]>(
-      'SELECT name, type, category, balance, total_paid FROM accounts WHERE snapshot_id = ?'
+      'SELECT name, type, category, balance, total_paid, position FROM accounts WHERE snapshot_id = ? ORDER BY position, id'
     )
     .all(previousSnapshotId);
 
   for (const acc of prevAccounts) {
-    insertAccount.run(newSnapshotId, acc.name, acc.type, acc.category, acc.balance, acc.total_paid);
+    insertAccount.run(newSnapshotId, acc.name, acc.type, acc.category, acc.balance, acc.total_paid, acc.position);
   }
 
-  // Step 2: Copy the category tree, building old_id → new_id map
-  // ORDER BY id ensures parents (lower ids) are processed before their children
+  // Step 2: Copy the category tree, building old_id → new_id map.
+  // ORDER BY id ensures parents (lower ids) are processed before their children,
+  // keeping the id-remap valid. The source `position` is carried through so
+  // sibling order survives (position is per-parent, so it can't drive this loop).
   const prevCategories = db
     .query<CategoryRow, [number]>(
-      'SELECT id, name, parent_id FROM expense_categories WHERE snapshot_id = ? ORDER BY id'
+      'SELECT id, name, parent_id, position FROM expense_categories WHERE snapshot_id = ? ORDER BY id'
     )
     .all(previousSnapshotId);
 
   const idMap = new Map<number, number>();
   const insertCategory = db.prepare(
-    'INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, ?)'
+    'INSERT INTO expense_categories (snapshot_id, name, parent_id, position) VALUES (?, ?, ?, ?)'
   );
 
   for (const cat of prevCategories) {
@@ -90,39 +94,44 @@ export function carryForward(
       }
       newParentId = mapped;
     }
-    const result = insertCategory.run(newSnapshotId, cat.name, newParentId);
+    const result = insertCategory.run(newSnapshotId, cat.name, newParentId, cat.position);
     idMap.set(cat.id, Number(result.lastInsertRowid));
   }
 
-  // Step 3: Copy recurring expenses with remapped category IDs
+  // Step 3: Copy recurring expenses with remapped category IDs. Only a subset
+  // (recurring=1) carries forward, so positions are re-packed contiguously per
+  // destination category while preserving the survivors' relative order.
   const recurringExpenses = db
-    .query<ExpenseRow, [number]>(
-      'SELECT name, amount, category_id, recurring FROM expenses WHERE snapshot_id = ? AND recurring = 1'
+    .query<ExpenseRow & { position: number }, [number]>(
+      'SELECT name, amount, category_id, recurring, position FROM expenses WHERE snapshot_id = ? AND recurring = 1 ORDER BY category_id, position, id'
     )
     .all(previousSnapshotId);
 
   const insertExpense = db.prepare(
-    'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring, position) VALUES (?, ?, ?, ?, ?, ?)'
   );
 
+  const nextExpensePos = new Map<number, number>();
   for (const exp of recurringExpenses) {
     const newCategoryId = idMap.get(exp.category_id);
     if (newCategoryId === undefined) continue;
-    insertExpense.run(newSnapshotId, exp.name, exp.amount, newCategoryId, exp.recurring);
+    const pos = nextExpensePos.get(newCategoryId) ?? 0;
+    nextExpensePos.set(newCategoryId, pos + 1);
+    insertExpense.run(newSnapshotId, exp.name, exp.amount, newCategoryId, exp.recurring, pos);
   }
 
-  // Step 4: Copy recurring incomes
+  // Step 4: Copy recurring incomes, re-packing positions contiguously.
   const recurringIncomes = db
     .query<IncomeRow, [number]>(
-      'SELECT name, amount, category, recurring FROM incomes WHERE snapshot_id = ? AND recurring = 1'
+      'SELECT name, amount, category, recurring FROM incomes WHERE snapshot_id = ? AND recurring = 1 ORDER BY position, id'
     )
     .all(previousSnapshotId);
 
   const insertIncome = db.prepare(
-    'INSERT INTO incomes (snapshot_id, name, amount, category, recurring) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO incomes (snapshot_id, name, amount, category, recurring, position) VALUES (?, ?, ?, ?, ?, ?)'
   );
 
-  for (const inc of recurringIncomes) {
-    insertIncome.run(newSnapshotId, inc.name, inc.amount, inc.category, inc.recurring);
-  }
+  recurringIncomes.forEach((inc, index) => {
+    insertIncome.run(newSnapshotId, inc.name, inc.amount, inc.category, inc.recurring, index);
+  });
 }

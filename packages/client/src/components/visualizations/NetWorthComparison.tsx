@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { computeNetWorthDelta, sumNetWorth, buildAccountChartData } from '../../lib/net-worth';
 import { formatEurCents, formatDeltaCents } from '../../lib/currency';
+import { t } from '../../lib/strings';
 
 interface Account {
   name: string;
@@ -45,13 +46,13 @@ export function NetWorthComparison({ accounts, previousAccounts }: Props) {
       {/* Headline */}
       <div className="flex flex-wrap items-baseline gap-4 mb-6">
         <div>
-          <p className="text-sm text-gray-500 mb-0.5">Net Worth</p>
+          <p className="text-sm text-gray-500 mb-0.5">{t.netWorth}</p>
           <p className="text-3xl font-bold tabular-nums">{formatEurCents(netWorth)}</p>
         </div>
         {delta !== null && prevNetWorth !== null && (
           <div>
             <p className="text-sm text-gray-500 mb-0.5">
-              vs {formatEurCents(prevNetWorth)}
+              {t.vs} {formatEurCents(prevNetWorth)}
             </p>
             <p
               className={`text-xl font-semibold tabular-nums ${
@@ -69,7 +70,7 @@ export function NetWorthComparison({ accounts, previousAccounts }: Props) {
           </div>
         )}
         {prevNetWorth === null && (
-          <p className="text-sm text-gray-400 italic">No previous snapshot</p>
+          <p className="text-sm text-gray-400 italic">{t.noPreviousSnapshot}</p>
         )}
       </div>
 
@@ -93,9 +94,9 @@ export function NetWorthComparison({ accounts, previousAccounts }: Props) {
           <Legend />
           <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1} />
           {prevNetWorth !== null && (
-            <Bar dataKey="Previous" fill="#94a3b8" radius={[2, 2, 0, 0]} />
+            <Bar dataKey="Previous" name={t.previous} fill="#94a3b8" radius={[2, 2, 0, 0]} />
           )}
-          <Bar dataKey="Current" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+          <Bar dataKey="Current" name={t.current} fill="#3b82f6" radius={[2, 2, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

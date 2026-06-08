@@ -191,4 +191,65 @@ describe('carryForward', () => {
     expect(accounts.map((a) => a.name)).toContain('JanAccount');
     expect(accounts.map((a) => a.name)).not.toContain('MarAccount');
   });
+
+  test('preserves manual account order via position', () => {
+    const db = makeDb();
+    const prevId = insertSnapshot(db, 2026, 1);
+    // positions deliberately out of id order
+    db.run('INSERT INTO accounts (snapshot_id, name, type, category, balance, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'first', 'asset', 'cash', 0, 2]);
+    db.run('INSERT INTO accounts (snapshot_id, name, type, category, balance, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'second', 'asset', 'cash', 0, 0]);
+    db.run('INSERT INTO accounts (snapshot_id, name, type, category, balance, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'third', 'asset', 'cash', 0, 1]);
+
+    const newId = insertSnapshot(db, 2026, 2);
+    carryForward(db, newId, prevId);
+
+    const names = db
+      .query<{ name: string }, [number]>('SELECT name FROM accounts WHERE snapshot_id = ? ORDER BY position, id')
+      .all(newId)
+      .map((r) => r.name);
+    expect(names).toEqual(['second', 'third', 'first']);
+  });
+
+  test('preserves subcategory order within a parent via position', () => {
+    const db = makeDb();
+    const prevId = insertSnapshot(db, 2026, 1);
+    db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id, position) VALUES (?, ?, NULL, 0)', [prevId, 'Root']);
+    const rootId = Number(db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!.id);
+    db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id, position) VALUES (?, ?, ?, ?)', [prevId, 'x', rootId, 2]);
+    db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id, position) VALUES (?, ?, ?, ?)', [prevId, 'y', rootId, 0]);
+    db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id, position) VALUES (?, ?, ?, ?)', [prevId, 'z', rootId, 1]);
+
+    const newId = insertSnapshot(db, 2026, 2);
+    carryForward(db, newId, prevId);
+
+    const newRoot = db
+      .query<{ id: number }, [number]>('SELECT id FROM expense_categories WHERE snapshot_id = ? AND parent_id IS NULL')
+      .get(newId)!;
+    const subs = db
+      .query<{ name: string }, [number]>('SELECT name FROM expense_categories WHERE parent_id = ? ORDER BY position, id')
+      .all(newRoot.id)
+      .map((r) => r.name);
+    expect(subs).toEqual(['y', 'z', 'x']);
+  });
+
+  test('re-packs recurring expense positions contiguously', () => {
+    const db = makeDb();
+    const prevId = insertSnapshot(db, 2026, 1);
+    db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id, position) VALUES (?, ?, NULL, 0)', [prevId, 'Cat']);
+    const catId = Number(db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!.id);
+    // positions 0..3; only positions 1 and 3 are recurring
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'e0', 100, catId, 0, 0]);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'e1', 100, catId, 1, 1]);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'e2', 100, catId, 0, 2]);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'e3', 100, catId, 1, 3]);
+
+    const newId = insertSnapshot(db, 2026, 2);
+    carryForward(db, newId, prevId);
+
+    const rows = db
+      .query<{ name: string; position: number }, [number]>('SELECT name, position FROM expenses WHERE snapshot_id = ? ORDER BY position')
+      .all(newId);
+    expect(rows.map((r) => r.name)).toEqual(['e1', 'e3']);
+    expect(rows.map((r) => r.position)).toEqual([0, 1]);
+  });
 });

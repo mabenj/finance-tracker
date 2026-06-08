@@ -70,4 +70,31 @@ describe('snapshots router', () => {
     expect(marFull.previousSnapshot).not.toBeNull();
     expect(marFull.previousSnapshot!.id).toBe(jan.id);
   });
+
+  test('get returns accounts ordered by position', async () => {
+    const caller = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    let full = await caller.snapshots.get({ id: snap.id });
+    const ids = full.accounts.map((a) => a.id);
+    const reversed = [...ids].reverse();
+
+    await caller.accounts.reorder({ snapshotId: snap.id, orderedIds: reversed });
+
+    full = await caller.snapshots.get({ id: snap.id });
+    expect(full.accounts.map((a) => a.id)).toEqual(reversed);
+  });
+
+  test('get returns previousSnapshot accounts ordered by position', async () => {
+    const caller = makeTestCaller();
+    const jan = await caller.snapshots.create({ year: 2026, month: 1 });
+    const janFull = await caller.snapshots.get({ id: jan.id });
+    const ids = janFull.accounts.map((a) => a.id);
+    const reversed = [...ids].reverse();
+    await caller.accounts.reorder({ snapshotId: jan.id, orderedIds: reversed });
+
+    const feb = await caller.snapshots.create({ year: 2026, month: 2 });
+    const febFull = await caller.snapshots.get({ id: feb.id });
+    expect(febFull.previousSnapshot).not.toBeNull();
+    expect(febFull.previousSnapshot!.accounts.map((a) => a.id)).toEqual(reversed);
+  });
 });

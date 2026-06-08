@@ -1,4 +1,5 @@
 import { sumTree } from './sum-tree';
+import { t } from './strings';
 
 export type SankeyNodeType =
   | 'income'
@@ -105,7 +106,7 @@ export function buildSankeyGraph(incomes: Inc[], expenses: Exp[], categories: Ca
   // --- Income side (column 0), ordered value-desc; deficit/unspecified pinned bottom ---
   const isNoIncome = totalIncome === 0; // state 2
   if (isNoIncome) {
-    nodes.push({ id: 'unspecified', name: 'Unspecified Income', type: 'unspecified-income', value: totalExpenses, depth: 0, color: UNSPECIFIED, rank: rank++ });
+    nodes.push({ id: 'unspecified', name: t.sankeyUnspecifiedIncome, type: 'unspecified-income', value: totalExpenses, depth: 0, color: UNSPECIFIED, rank: rank++ });
     links.push({ source: 'unspecified', target: BUDGET, value: totalExpenses, color: UNSPECIFIED });
   } else {
     const sorted = [...incs]
@@ -122,12 +123,12 @@ export function buildSankeyGraph(incomes: Inc[], expenses: Exp[], categories: Ca
   const savings = totalIncome - totalExpenses;
   const isDeficit = !isNoIncome && savings < 0;
   if (isDeficit) {
-    nodes.push({ id: 'deficit', name: 'Deficit', type: 'deficit', value: -savings, depth: 0, color: DEFICIT, rank: rank++ });
+    nodes.push({ id: 'deficit', name: t.sankeyDeficit, type: 'deficit', value: -savings, depth: 0, color: DEFICIT, rank: rank++ });
     links.push({ source: 'deficit', target: BUDGET, value: -savings, color: DEFICIT });
   }
 
   // --- Budget trunk (column 1, alone); labelled "Expenses" in the UI ---
-  nodes.push({ id: BUDGET, name: 'Expenses', type: 'budget', value: Math.max(totalIncome, totalExpenses), depth: 1, color: NEUTRAL, rank: rank++ });
+  nodes.push({ id: BUDGET, name: t.expenses, type: 'budget', value: Math.max(totalIncome, totalExpenses), depth: 1, color: NEUTRAL, rank: rank++ });
 
   // --- Expense subtree, DFS from Budget over top categories (value-desc) ---
   const topCats = categories
@@ -143,7 +144,7 @@ export function buildSankeyGraph(incomes: Inc[], expenses: Exp[], categories: Ca
 
   // --- Savings outflow, pinned to the bottom of Budget's outflows (state 6) ---
   if (!isNoIncome && savings > 0) {
-    nodes.push({ id: 'savings', name: 'Savings', type: 'savings', value: savings, depth: 2, color: SAVINGS, rank: rank++ });
+    nodes.push({ id: 'savings', name: t.sankeySavings, type: 'savings', value: savings, depth: 2, color: SAVINGS, rank: rank++ });
     links.push({ source: BUDGET, target: 'savings', value: savings, color: SAVINGS });
   }
 

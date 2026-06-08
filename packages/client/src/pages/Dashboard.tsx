@@ -1,11 +1,8 @@
 import { useState } from 'react';
 import { trpc } from '../lib/trpc';
 import { SnapshotList } from '../components/dashboard/SnapshotList';
-
-const MONTH_NAMES = [
-  '', 'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
+import { MONTH_NAMES, formatMonthYear } from '../lib/date';
+import { t } from '../lib/strings';
 
 function defaultCreateMonth(snapshots: { year: number; month: number }[]) {
   if (snapshots.length === 0) {
@@ -51,7 +48,7 @@ export function Dashboard() {
 
   function handleCreate() {
     if (takenSet.has(`${selectedYear}-${selectedMonth}`)) {
-      setCreateError(`A snapshot for ${MONTH_NAMES[selectedMonth]} ${selectedYear} already exists.`);
+      setCreateError(t.snapshotExists(formatMonthYear(selectedYear, selectedMonth)));
       return;
     }
     createMutation.mutate({ year: selectedYear, month: selectedMonth });
@@ -60,12 +57,12 @@ export function Dashboard() {
   return (
     <div className="max-w-2xl mx-auto py-10 px-4">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Financial Snapshots</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t.dashboardTitle}</h1>
         <button
           onClick={openDialog}
           className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
         >
-          + New Snapshot
+          {t.newSnapshot}
         </button>
       </div>
 
@@ -75,7 +72,7 @@ export function Dashboard() {
       {dialogOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 w-80">
-            <h2 className="text-lg font-semibold mb-4">New Snapshot</h2>
+            <h2 className="text-lg font-semibold mb-4">{t.newSnapshotDialogTitle}</h2>
 
             <div className="flex gap-2 mb-4">
               <select
@@ -90,7 +87,7 @@ export function Dashboard() {
                     disabled={takenSet.has(`${selectedYear}-${m}`)}
                   >
                     {MONTH_NAMES[m]}
-                    {takenSet.has(`${selectedYear}-${m}`) ? ' (exists)' : ''}
+                    {takenSet.has(`${selectedYear}-${m}`) ? t.monthExistsSuffix : ''}
                   </option>
                 ))}
               </select>
@@ -101,7 +98,7 @@ export function Dashboard() {
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
                 className="w-24 border border-gray-300 rounded px-2 py-1.5 text-sm"
-                placeholder="Year"
+                placeholder={t.year}
               />
             </div>
 
@@ -114,14 +111,14 @@ export function Dashboard() {
                 onClick={() => setDialogOpen(false)}
                 className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
               >
-                Cancel
+                {t.cancel}
               </button>
               <button
                 onClick={handleCreate}
                 disabled={createMutation.isLoading}
                 className="bg-blue-600 text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
               >
-                {createMutation.isLoading ? 'Creating…' : 'Create'}
+                {createMutation.isLoading ? t.creating : t.create}
               </button>
             </div>
           </div>

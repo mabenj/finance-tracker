@@ -303,3 +303,83 @@ describe('accounts router', () => {
     expect(after > before).toBe(true);
   });
 });
+
+describe('accounts reorder', () => {
+  test('reorder applies the given order', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    let full = await caller.snapshots.get({ id: snap.id });
+    const ids = full.accounts.map((a) => a.id);
+    expect(ids.length).toBeGreaterThan(1);
+    const reversed = [...ids].reverse();
+
+    await caller.accounts.reorder({ snapshotId: snap.id, orderedIds: reversed });
+
+    full = await caller.snapshots.get({ id: snap.id });
+    expect(full.accounts.map((a) => a.id)).toEqual(reversed);
+  });
+
+  test('reorder rejects when an id is missing from the set', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const full = await caller.snapshots.get({ id: snap.id });
+    const ids = full.accounts.map((a) => a.id);
+    await expect(
+      caller.accounts.reorder({ snapshotId: snap.id, orderedIds: ids.slice(1) })
+    ).rejects.toThrow();
+  });
+
+  test('reorder rejects a foreign id', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const full = await caller.snapshots.get({ id: snap.id });
+    const ids = full.accounts.map((a) => a.id);
+    await expect(
+      caller.accounts.reorder({ snapshotId: snap.id, orderedIds: [...ids, 999999] })
+    ).rejects.toThrow();
+  });
+
+  test('reorder rejects duplicate ids', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const full = await caller.snapshots.get({ id: snap.id });
+    const ids = full.accounts.map((a) => a.id);
+    const dup = [...ids];
+    dup[1] = dup[0];
+    await expect(
+      caller.accounts.reorder({ snapshotId: snap.id, orderedIds: dup })
+    ).rejects.toThrow();
+  });
+
+  test('reorder rejects an unknown snapshot', async () => {
+    const { caller } = makeTestCaller();
+    await expect(
+      caller.accounts.reorder({ snapshotId: 999999, orderedIds: [] })
+    ).rejects.toThrow();
+  });
+
+  test('updated_at advances when accounts are reordered', async () => {
+    const { caller, db } = makeTestCaller();
+    db.run(
+      "INSERT INTO snapshots (year, month, created_at, updated_at) VALUES (2026, 9, datetime('now', '-1 hour'), datetime('now', '-1 hour'))"
+    );
+    const snapId = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!.id;
+    db.run('INSERT INTO accounts (snapshot_id, name, type, category, balance) VALUES (?, ?, ?, ?, ?)', [snapId, 'A', 'asset', 'cash', 0]);
+    db.run('INSERT INTO accounts (snapshot_id, name, type, category, balance) VALUES (?, ?, ?, ?, ?)', [snapId, 'B', 'asset', 'cash', 0]);
+    const ids = db
+      .query<{ id: number }, [number]>('SELECT id FROM accounts WHERE snapshot_id = ? ORDER BY id')
+      .all(snapId)
+      .map((r) => r.id);
+
+    const before = db
+      .query<{ updated_at: string }, [number]>('SELECT updated_at FROM snapshots WHERE id = ?')
+      .get(snapId)!.updated_at;
+
+    await caller.accounts.reorder({ snapshotId: snapId, orderedIds: [...ids].reverse() });
+
+    const after = db
+      .query<{ updated_at: string }, [number]>('SELECT updated_at FROM snapshots WHERE id = ?')
+      .get(snapId)!.updated_at;
+    expect(after > before).toBe(true);
+  });
+});

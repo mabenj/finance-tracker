@@ -4,11 +4,14 @@ import { useToast } from '../../lib/toast';
 import { formatEurCents, centsToEuroStr, eurosToCents, sanitizeEuroInput } from '../../lib/currency';
 import { sumTree } from '../../lib/sum-tree';
 import { CategoryPicker } from './CategoryPicker';
+import { ReorderButtons } from './ReorderButtons';
+import { t } from '../../lib/strings';
 
 interface Category {
   id: number;
   name: string;
   parent_id: number | null;
+  position: number;
 }
 
 interface Expense {
@@ -17,6 +20,7 @@ interface Expense {
   amount: number;
   category_id: number;
   recurring: number;
+  position: number;
 }
 
 interface Props {
@@ -33,8 +37,16 @@ interface CategoryNode {
   expenses: Expense[];
 }
 
+// Manual order is the single source of truth: categories and expenses are
+// ordered by their stored `position` within each sibling group (id tiebreak).
+// Iterating categories in global (position, id) order guarantees that, for any
+// one parent, its children land in ascending position order.
+function byPosition<T extends { position: number; id: number }>(a: T, b: T): number {
+  return a.position - b.position || a.id - b.id;
+}
+
 function buildTree(categories: Category[], expenses: Expense[]): CategoryNode[] {
-  const sorted = [...categories].sort((a, b) => a.name.localeCompare(b.name));
+  const sorted = [...categories].sort(byPosition);
   const map = new Map<number, CategoryNode>();
   for (const cat of sorted) map.set(cat.id, { cat, children: [], expenses: [] });
   for (const e of expenses) map.get(e.category_id)?.expenses.push(e);
@@ -47,9 +59,9 @@ function buildTree(categories: Category[], expenses: Expense[]): CategoryNode[] 
       map.get(cat.parent_id)?.children.push(node);
     }
   }
-  // Sort expenses within each node by amount descending
+  // Sort expenses within each node by manual position
   for (const node of map.values()) {
-    node.expenses.sort((a, b) => b.amount - a.amount);
+    node.expenses.sort(byPosition);
   }
   return roots;
 }
@@ -67,21 +79,29 @@ function Indent({ depth }: { depth: number }) {
 interface ExpenseRowProps {
   expense: Expense;
   depth: number;
+  index: number;
+  siblingIds: number[];
   snapshotId: number;
   categories: Category[];
   editMode: boolean;
   onUpdate: () => void;
   onCategoriesUpdate: (cat: Category) => void;
+  onMoveExpense: (categoryId: number, siblingIds: number[], index: number, dir: 'up' | 'down') => void;
+  expensesPending: boolean;
 }
 
 function ExpenseRow({
   expense,
   depth,
+  index,
+  siblingIds,
   snapshotId,
   categories,
   editMode,
   onUpdate,
   onCategoriesUpdate,
+  onMoveExpense,
+  expensesPending,
 }: ExpenseRowProps) {
   const { showToast } = useToast();
   const [editing, setEditing] = useState(false);
@@ -102,7 +122,7 @@ function ExpenseRow({
 
   function handleSave() {
     const parsedAmount = eurosToCents(amount);
-    if (parsedAmount === null || parsedAmount < 0) { showToast('Amount must be zero or positive'); return; }
+    if (parsedAmount === null || parsedAmount < 0) { showToast(t.amountNonNegative); return; }
     upsertMut.mutate({
       id: expense.id,
       snapshotId,
@@ -125,7 +145,7 @@ function ExpenseRow({
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
               className="border border-gray-300 rounded px-2 py-1 text-sm flex-1"
-              placeholder="Expense name"
+              placeholder={t.expenseName}
             />
             <input
               type="number"
@@ -138,7 +158,7 @@ function ExpenseRow({
             />
           </div>
           <div className="flex items-center gap-3 text-sm">
-            <span className="text-gray-500">Category:</span>
+            <span className="text-gray-500">{t.categoryLabel}</span>
             <CategoryPicker
               snapshotId={snapshotId}
               categories={categories}
@@ -155,7 +175,7 @@ function ExpenseRow({
                 onChange={(e) => setRecurring(e.target.checked)}
                 className="rounded"
               />
-              Recurring
+              {t.recurring}
             </label>
             <div className="flex gap-2 ml-auto">
               <button
@@ -163,10 +183,10 @@ function ExpenseRow({
                 disabled={upsertMut.isLoading}
                 className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50"
               >
-                {upsertMut.isLoading ? 'Saving…' : 'Save'}
+                {upsertMut.isLoading ? t.saving : t.save}
               </button>
               <button onClick={() => setEditing(false)} className="text-xs text-gray-500 hover:text-gray-700 px-1">
-                Cancel
+                {t.cancel}
               </button>
             </div>
           </div>
@@ -182,22 +202,29 @@ function ExpenseRow({
         <span className="flex items-center gap-2 min-w-0">
           <span className="text-sm text-gray-700 truncate">{expense.name}</span>
           {expense.recurring === 1 && (
-            <span className="text-xs text-gray-400 shrink-0" title="Recurring">↻</span>
+            <span className="text-xs text-gray-400 shrink-0" title={t.recurring}>↻</span>
           )}
         </span>
         <span className="flex items-center gap-3 shrink-0 ml-4">
           <span className="text-sm tabular-nums text-gray-800">{formatEurCents(expense.amount)}</span>
           {editMode && (
             <>
+              <ReorderButtons
+                canMoveUp={index > 0}
+                canMoveDown={index < siblingIds.length - 1}
+                pending={expensesPending}
+                onMoveUp={() => onMoveExpense(expense.category_id, siblingIds, index, 'up')}
+                onMoveDown={() => onMoveExpense(expense.category_id, siblingIds, index, 'down')}
+              />
               <button onClick={() => setEditing(true)} className="text-xs text-blue-500 hover:text-blue-700">
-                Edit
+                {t.edit}
               </button>
               <button
                 onClick={() => deleteMut.mutate({ id: expense.id, snapshotId })}
                 disabled={deleteMut.isLoading}
                 className="text-xs text-red-400 hover:text-red-600 disabled:opacity-50"
               >
-                {deleteMut.isLoading ? '…' : 'Delete'}
+                {deleteMut.isLoading ? '…' : t.delete}
               </button>
             </>
           )}
@@ -241,8 +268,8 @@ function AddExpenseRow({
 
   function handleSave() {
     const parsedAmount = eurosToCents(amount);
-    if (!name.trim()) { showToast('Name is required'); return; }
-    if (parsedAmount === null || parsedAmount < 0) { showToast('Amount must be zero or positive'); return; }
+    if (!name.trim()) { showToast(t.nameRequired); return; }
+    if (parsedAmount === null || parsedAmount < 0) { showToast(t.amountNonNegative); return; }
     upsertMut.mutate({ snapshotId, name: name.trim(), amount: parsedAmount, categoryId, recurring });
   }
 
@@ -257,7 +284,7 @@ function AddExpenseRow({
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }}
             className="border border-gray-300 rounded px-2 py-1 text-sm flex-1"
-            placeholder="Expense name"
+            placeholder={t.expenseName}
           />
           <input
             type="number"
@@ -270,7 +297,7 @@ function AddExpenseRow({
           />
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-gray-500">Category:</span>
+          <span className="text-gray-500">{t.categoryLabel}</span>
           <CategoryPicker
             snapshotId={snapshotId}
             categories={categories}
@@ -287,7 +314,7 @@ function AddExpenseRow({
               onChange={(e) => setRecurring(e.target.checked)}
               className="rounded"
             />
-            Recurring
+            {t.recurring}
           </label>
           <div className="flex gap-2 ml-auto">
             <button
@@ -295,9 +322,9 @@ function AddExpenseRow({
               disabled={upsertMut.isLoading}
               className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50"
             >
-              {upsertMut.isLoading ? 'Saving…' : 'Add'}
+              {upsertMut.isLoading ? t.saving : t.add}
             </button>
-            <button onClick={onClose} className="text-xs text-gray-500 hover:text-gray-700 px-1">Cancel</button>
+            <button onClick={onClose} className="text-xs text-gray-500 hover:text-gray-700 px-1">{t.cancel}</button>
           </div>
         </div>
       </div>
@@ -307,29 +334,49 @@ function AddExpenseRow({
 
 // ─── Category node ────────────────────────────────────────────────────────────
 
+type MoveFn = (scopeId: number | null, siblingIds: number[], index: number, dir: 'up' | 'down') => void;
+
 interface CategoryNodeRowProps {
   node: CategoryNode;
   depth: number;
+  index: number;
+  siblingIds: number[];
+  parentId: number | null;
   snapshotId: number;
   allCategories: Category[];
   totals: Map<number, number>;
   editMode: boolean;
+  collapsedIds: Set<number>;
+  onToggleCollapse: (id: number) => void;
   onUpdate: () => void;
   onCategoriesUpdate: (cat: Category) => void;
+  onMoveCategory: MoveFn;
+  onMoveExpense: (categoryId: number, siblingIds: number[], index: number, dir: 'up' | 'down') => void;
+  categoriesPending: boolean;
+  expensesPending: boolean;
 }
 
 function CategoryNodeRow({
   node,
   depth,
+  index,
+  siblingIds,
+  parentId,
   snapshotId,
   allCategories,
   totals,
   editMode,
+  collapsedIds,
+  onToggleCollapse,
   onUpdate,
   onCategoriesUpdate,
+  onMoveCategory,
+  onMoveExpense,
+  categoriesPending,
+  expensesPending,
 }: CategoryNodeRowProps) {
   const { showToast } = useToast();
-  const [collapsed, setCollapsed] = useState(false);
+  const collapsed = collapsedIds.has(node.cat.id);
   const [renaming, setRenaming] = useState(false);
   const [renameName, setRenameName] = useState(node.cat.name);
   const [addingExpense, setAddingExpense] = useState(false);
@@ -376,8 +423,8 @@ function CategoryNodeRow({
             <span className="w-5 shrink-0 flex items-center text-xs">
               {hasContent && (
                 <button
-                  onClick={() => setCollapsed((c) => !c)}
-                  aria-label={collapsed ? 'Expand category' : 'Collapse category'}
+                  onClick={() => onToggleCollapse(node.cat.id)}
+                  aria-label={collapsed ? t.expandCategory : t.collapseCategory}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   {collapsed ? '▶' : '▼'}
@@ -402,16 +449,16 @@ function CategoryNodeRow({
                   disabled={updateMut.isLoading}
                   className="text-xs text-green-700 hover:text-green-900 font-medium"
                 >
-                  Save
+                  {t.save}
                 </button>
-                <button onClick={() => setRenaming(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                <button onClick={() => setRenaming(false)} className="text-xs text-gray-400 hover:text-gray-600">{t.cancel}</button>
               </span>
             ) : (
               <span className="flex items-center gap-2 min-w-0">
                 <span className={`text-sm font-medium truncate ${hasContent ? 'text-gray-800' : 'text-gray-400'}`}>
                   {node.cat.name}
                 </span>
-                {!hasContent && <span className="text-xs font-normal text-gray-400 shrink-0">empty</span>}
+                {!hasContent && <span className="text-xs font-normal text-gray-400 shrink-0">{t.emptyCategory}</span>}
               </span>
             )}
           </span>
@@ -419,32 +466,39 @@ function CategoryNodeRow({
           <span className="flex items-center gap-3 shrink-0 ml-4">
             <span className={`text-sm tabular-nums font-medium ${hasContent ? 'text-gray-600' : 'text-gray-400'}`}>{formatEurCents(subtotal)}</span>
             {editMode && !renaming && (
-              <span className="flex gap-1">
+              <span className="flex items-center gap-1">
+                <ReorderButtons
+                  canMoveUp={index > 0}
+                  canMoveDown={index < siblingIds.length - 1}
+                  pending={categoriesPending}
+                  onMoveUp={() => onMoveCategory(parentId, siblingIds, index, 'up')}
+                  onMoveDown={() => onMoveCategory(parentId, siblingIds, index, 'down')}
+                />
                 <button
                   onClick={() => setAddingExpense(true)}
-                  title="Add expense"
+                  title={t.addExpense}
                   className="text-xs text-green-600 hover:text-green-800 px-1"
                 >
-                  + Expense
+                  {t.addExpenseShort}
                 </button>
                 <button
                   onClick={() => setAddingSubcat(true)}
-                  title="Add subcategory"
+                  title={t.addSubcategory}
                   className="text-xs text-blue-500 hover:text-blue-700 px-1"
                 >
-                  + Sub
+                  {t.addSubcategoryShort}
                 </button>
                 <button
                   onClick={() => { setRenameName(node.cat.name); setRenaming(true); }}
                   className="text-xs text-gray-400 hover:text-gray-600 px-1"
                 >
-                  Rename
+                  {t.rename}
                 </button>
                 <button
                   onClick={() => setPendingDelete(true)}
                   className="text-xs text-red-400 hover:text-red-600 px-1"
                 >
-                  Delete
+                  {t.delete}
                 </button>
               </span>
             )}
@@ -466,17 +520,17 @@ function CategoryNodeRow({
                 if (e.key === 'Escape') { setAddingSubcat(false); setSubcatName(''); }
               }}
               className="border border-gray-300 rounded px-2 py-1 text-sm flex-1 max-w-xs"
-              placeholder="Subcategory name"
+              placeholder={t.subcategoryName}
             />
             <button
               onClick={() => createSubcatMut.mutate({ snapshotId, name: subcatName.trim(), parentId: node.cat.id })}
               disabled={createSubcatMut.isLoading}
               className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
             >
-              Add
+              {t.add}
             </button>
             <button onClick={() => { setAddingSubcat(false); setSubcatName(''); }} className="text-xs text-gray-500 hover:text-gray-700">
-              Cancel
+              {t.cancel}
             </button>
           </div>
         </div>
@@ -485,30 +539,43 @@ function CategoryNodeRow({
       {/* Children and expenses (collapsible) */}
       {!collapsed && (
         <>
-          {node.children.map((child) => (
+          {node.children.map((child, i) => (
             <CategoryNodeRow
               key={child.cat.id}
               node={child}
               depth={depth + 1}
+              index={i}
+              siblingIds={node.children.map((c) => c.cat.id)}
+              parentId={node.cat.id}
               snapshotId={snapshotId}
               allCategories={allCategories}
               totals={totals}
               editMode={editMode}
+              collapsedIds={collapsedIds}
+              onToggleCollapse={onToggleCollapse}
               onUpdate={onUpdate}
               onCategoriesUpdate={onCategoriesUpdate}
+              onMoveCategory={onMoveCategory}
+              onMoveExpense={onMoveExpense}
+              categoriesPending={categoriesPending}
+              expensesPending={expensesPending}
             />
           ))}
 
-          {node.expenses.map((expense) => (
+          {node.expenses.map((expense, i) => (
             <ExpenseRow
               key={expense.id}
               expense={expense}
               depth={depth}
+              index={i}
+              siblingIds={node.expenses.map((e) => e.id)}
               snapshotId={snapshotId}
               categories={allCategories}
               editMode={editMode}
               onUpdate={onUpdate}
               onCategoriesUpdate={onCategoriesUpdate}
+              onMoveExpense={onMoveExpense}
+              expensesPending={expensesPending}
             />
           ))}
 
@@ -530,39 +597,34 @@ function CategoryNodeRow({
       {pendingDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 w-96">
-            <h2 className="text-base font-semibold mb-2">Delete category?</h2>
+            <h2 className="text-base font-semibold mb-2">{t.deleteCategoryTitle}</h2>
             {previewQuery.isLoading ? (
-              <p className="text-sm text-gray-500 mb-5">Loading…</p>
+              <p className="text-sm text-gray-500 mb-5">{t.loading}</p>
             ) : previewQuery.isError ? (
               <p className="text-sm text-red-600 mb-5">
-                Could not load deletion preview. Please close and try again.
+                {t.deletePreviewError}
               </p>
             ) : preview ? (
               <p className="text-sm text-gray-600 mb-5">
-                {preview.subcategoryCount > 0 || preview.expenseCount > 0 ? (
-                  <>
-                    This will delete{' '}
-                    {preview.subcategoryCount > 0 && (
-                      <><strong>{preview.subcategoryCount} subcategor{preview.subcategoryCount === 1 ? 'y' : 'ies'}</strong> and </>
-                    )}
-                    <strong>{preview.expenseCount} expense{preview.expenseCount === 1 ? '' : 's'}</strong>
-                    {' '}totaling <strong>{formatEurCents(preview.totalAmount)}</strong>. Are you sure?
-                  </>
-                ) : (
-                  'Delete this empty category?'
-                )}
+                {preview.subcategoryCount > 0 || preview.expenseCount > 0
+                  ? t.deleteCategoryBody(
+                      preview.subcategoryCount,
+                      preview.expenseCount,
+                      formatEurCents(preview.totalAmount)
+                    )
+                  : t.deleteEmptyCategory}
               </p>
             ) : null}
             <div className="flex justify-end gap-2">
               <button onClick={() => setPendingDelete(false)} className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900">
-                Cancel
+                {t.cancel}
               </button>
               <button
                 onClick={() => deleteMut.mutate({ id: node.cat.id, snapshotId })}
                 disabled={deleteMut.isLoading || previewQuery.isLoading || previewQuery.isError}
                 className="bg-red-600 text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-red-700 disabled:opacity-50"
               >
-                {deleteMut.isLoading ? 'Deleting…' : 'Delete'}
+                {deleteMut.isLoading ? t.deleting : t.delete}
               </button>
             </div>
           </div>
@@ -602,6 +664,32 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
     onError: (err) => showToast(err.message),
   });
 
+  const reorderCategoriesMut = trpc.categories.reorder.useMutation({
+    onSuccess: () => onUpdate(),
+    onError: (err) => showToast(err.message),
+  });
+
+  const reorderExpensesMut = trpc.expenses.reorder.useMutation({
+    onSuccess: () => onUpdate(),
+    onError: (err) => showToast(err.message),
+  });
+
+  function moveCategory(parentId: number | null, siblingIds: number[], index: number, dir: 'up' | 'down') {
+    const target = dir === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= siblingIds.length) return;
+    const orderedIds = [...siblingIds];
+    [orderedIds[index], orderedIds[target]] = [orderedIds[target], orderedIds[index]];
+    reorderCategoriesMut.mutate({ snapshotId, parentId, orderedIds });
+  }
+
+  function moveExpense(categoryId: number, siblingIds: number[], index: number, dir: 'up' | 'down') {
+    const target = dir === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= siblingIds.length) return;
+    const orderedIds = [...siblingIds];
+    [orderedIds[index], orderedIds[target]] = [orderedIds[target], orderedIds[index]];
+    reorderExpensesMut.mutate({ snapshotId, categoryId, orderedIds });
+  }
+
   const allCategories = useMemo(() => {
     const byId = new Map<number, Category>();
     // Local entries first; prop (server) entries overwrite so server-normalised data always wins
@@ -613,6 +701,38 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
   const totals = useMemo(() => sumTree(allCategories, expenses), [allCategories, expenses]);
 
   const tree = useMemo(() => buildTree(allCategories, expenses), [allCategories, expenses]);
+
+  // Only categories with content render a per-row toggle, so only those are
+  // "collapsible" and counted when deciding the collapse/expand-all button state.
+  const collapsibleIds = useMemo(() => {
+    const ids: number[] = [];
+    const walk = (nodes: CategoryNode[]) => {
+      for (const n of nodes) {
+        if (n.expenses.length > 0 || n.children.length > 0) ids.push(n.cat.id);
+        walk(n.children);
+      }
+    };
+    walk(tree);
+    return ids;
+  }, [tree]);
+
+  const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set());
+
+  const allCollapsed =
+    collapsibleIds.length > 0 && collapsibleIds.every((id) => collapsedIds.has(id));
+
+  function toggleAll() {
+    setCollapsedIds(allCollapsed ? new Set() : new Set(collapsibleIds));
+  }
+
+  function toggleOne(id: number) {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
 
@@ -626,31 +746,47 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-3">Expenses</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold">{t.expenses}</h2>
+        {collapsibleIds.length > 0 && (
+          <button onClick={toggleAll} className="text-xs text-gray-500 hover:text-gray-700">
+            {allCollapsed ? t.expandAll : t.collapseAll}
+          </button>
+        )}
+      </div>
       <div className="border border-gray-200 rounded-lg overflow-hidden">
         {allCategories.length === 0 && expenses.length === 0 && !editMode ? (
           <div className="py-8 text-center text-gray-400 text-sm">
-            No expenses yet — switch to edit mode to start adding.
+            {t.noExpensesView}
           </div>
         ) : (
           <>
             {tree.length === 0 && editMode && (
               <div className="py-4 text-center text-gray-400 text-sm">
-                No categories yet — add one below.
+                {t.noCategories}
               </div>
             )}
 
-            {tree.map((node) => (
+            {tree.map((node, index) => (
               <CategoryNodeRow
                 key={node.cat.id}
                 node={node}
                 depth={0}
+                index={index}
+                siblingIds={tree.map((n) => n.cat.id)}
+                parentId={null}
                 snapshotId={snapshotId}
                 allCategories={allCategories}
                 totals={totals}
                 editMode={editMode}
+                collapsedIds={collapsedIds}
+                onToggleCollapse={toggleOne}
                 onUpdate={onUpdate}
                 onCategoriesUpdate={handleCategoriesUpdate}
+                onMoveCategory={moveCategory}
+                onMoveExpense={moveExpense}
+                categoriesPending={reorderCategoriesMut.isLoading}
+                expensesPending={reorderExpensesMut.isLoading}
               />
             ))}
 
@@ -667,20 +803,20 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
                       if (e.key === 'Escape') { setAddingTopCat(false); setTopCatName(''); }
                     }}
                     className="border border-gray-300 rounded px-2 py-1 text-sm flex-1 max-w-xs"
-                    placeholder="New category name"
+                    placeholder={t.newCategoryName}
                   />
                   <button
                     onClick={() => createCatMut.mutate({ snapshotId, name: topCatName.trim() })}
                     disabled={createCatMut.isLoading}
                     className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
                   >
-                    Add
+                    {t.add}
                   </button>
                   <button
                     onClick={() => { setAddingTopCat(false); setTopCatName(''); }}
                     className="text-xs text-gray-500 hover:text-gray-700"
                   >
-                    Cancel
+                    {t.cancel}
                   </button>
                 </div>
               ) : (
@@ -688,7 +824,7 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
                   onClick={() => setAddingTopCat(true)}
                   className="w-full text-left py-2 px-3 text-sm text-blue-600 hover:text-blue-800 hover:bg-gray-50 border-t border-gray-200"
                 >
-                  + New Category
+                  {t.newCategory}
                 </button>
               )
             )}
@@ -696,7 +832,7 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
             {/* Total row */}
             {(allCategories.length > 0 || expenses.length > 0) && (
               <div className="flex justify-between items-center px-3 py-2 border-t border-gray-300 bg-gray-50">
-                <span className="text-sm font-semibold text-gray-700">Total Expenses</span>
+                <span className="text-sm font-semibold text-gray-700">{t.totalExpenses}</span>
                 <span className="text-sm font-semibold tabular-nums">{formatEurCents(totalExpenses)}</span>
               </div>
             )}

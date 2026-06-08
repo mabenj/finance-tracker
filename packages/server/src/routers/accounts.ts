@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, publicProcedure, TRPCError } from '../trpc';
 import { trimmedText, eurCents } from '../lib/validators';
 import { touchSnapshot } from '../lib/touch-snapshot';
+import { reorderWithinScope } from '../lib/reorder';
 import type { Context } from '../trpc';
 
 interface AccountRow {
@@ -12,6 +13,7 @@ interface AccountRow {
   category: string;
   balance: number;
   total_paid: number | null;
+  position: number;
 }
 
 const upsertInput = z.object({
@@ -29,7 +31,7 @@ const upsertInput = z.object({
 function requireAccount(db: Context['db'], id: number, snapshotId: number): AccountRow {
   const row = db
     .query<AccountRow, [number, number]>(
-      'SELECT id, snapshot_id, name, type, category, balance, total_paid FROM accounts WHERE id = ? AND snapshot_id = ?'
+      'SELECT id, snapshot_id, name, type, category, balance, total_paid, position FROM accounts WHERE id = ? AND snapshot_id = ?'
     )
     .get(id, snapshotId);
   if (!row) {
@@ -56,7 +58,7 @@ export const accountsRouter = router({
 
         return ctx.db
           .query<AccountRow, [number]>(
-            'SELECT id, snapshot_id, name, type, category, balance, total_paid FROM accounts WHERE id = ?'
+            'SELECT id, snapshot_id, name, type, category, balance, total_paid, position FROM accounts WHERE id = ?'
           )
           .get(id)!;
       } else {
@@ -72,16 +74,17 @@ export const accountsRouter = router({
 
         const result = ctx.db
           .prepare(
-            'INSERT INTO accounts (snapshot_id, name, type, category, balance, total_paid) VALUES (?, ?, ?, ?, ?, ?)'
+            `INSERT INTO accounts (snapshot_id, name, type, category, balance, total_paid, position)
+             VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position) + 1, 0) FROM accounts WHERE snapshot_id = ?))`
           )
-          .run(snapshotId, name, type, category, balance, totalPaid);
+          .run(snapshotId, name, type, category, balance, totalPaid, snapshotId);
 
         const newId = Number(result.lastInsertRowid);
         touchSnapshot(ctx.db, snapshotId);
 
         return ctx.db
           .query<AccountRow, [number]>(
-            'SELECT id, snapshot_id, name, type, category, balance, total_paid FROM accounts WHERE id = ?'
+            'SELECT id, snapshot_id, name, type, category, balance, total_paid, position FROM accounts WHERE id = ?'
           )
           .get(newId)!;
       }
@@ -103,4 +106,22 @@ export const accountsRouter = router({
 
       return account; // return deleted entity per spec §10
     }),
+
+  reorder: publicProcedure
+    .input(
+      z.object({
+        snapshotId: z.number().int().positive(),
+        orderedIds: z.array(z.number().int().positive()),
+      })
+    )
+    .mutation(({ ctx, input }) =>
+      reorderWithinScope(
+        ctx.db,
+        'accounts',
+        input.snapshotId,
+        'snapshot_id = ?',
+        [input.snapshotId],
+        input.orderedIds
+      )
+    ),
 });

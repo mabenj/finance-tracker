@@ -2,11 +2,8 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { trpc } from '../lib/trpc';
 import { SnapshotDetail } from '../components/snapshot/SnapshotDetail';
-
-const MONTH_NAMES = [
-  '', 'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
+import { formatMonthYear } from '../lib/date';
+import { t } from '../lib/strings';
 
 export function Snapshot() {
   const { id } = useParams<{ id: string }>();
@@ -20,15 +17,15 @@ export function Snapshot() {
   );
 
   if (isLoading) {
-    return <div className="text-center py-16 text-gray-400">Loading…</div>;
+    return <div className="text-center py-16 text-gray-400">{t.loading}</div>;
   }
 
   if (!data) {
     return (
       <div className="text-center py-16 text-gray-500">
-        <p className="mb-4">Snapshot not found.</p>
+        <p className="mb-4">{t.snapshotNotFound}</p>
         <button onClick={() => navigate('/')} className="text-blue-600 hover:underline text-sm">
-          ← Back to dashboard
+          {t.backToDashboard}
         </button>
       </div>
     );
@@ -42,10 +39,10 @@ export function Snapshot() {
             onClick={() => navigate('/')}
             className="text-gray-400 hover:text-gray-700 text-sm"
           >
-            ← Dashboard
+            {t.dashboardLink}
           </button>
           <h1 className="text-2xl font-bold tracking-tight">
-            {MONTH_NAMES[data.month]} {data.year}
+            {formatMonthYear(data.year, data.month)}
           </h1>
         </div>
         <button
@@ -56,7 +53,7 @@ export function Snapshot() {
               : 'bg-blue-600 text-white hover:bg-blue-700'
           }`}
         >
-          {editMode ? 'View Mode' : 'Edit Mode'}
+          {editMode ? t.viewMode : t.editMode}
         </button>
       </div>
 

@@ -4,6 +4,7 @@ import { SankeyDiagram } from '../visualizations/SankeyDiagram';
 import { AccountsSection } from './AccountsSection';
 import { IncomeSection } from './IncomeSection';
 import { ExpenseTree } from './ExpenseTree';
+import { t } from '../../lib/strings';
 
 interface Account {
   id: number;
@@ -26,6 +27,7 @@ interface Category {
   id: number;
   name: string;
   parent_id: number | null;
+  position: number;
 }
 
 interface Expense {
@@ -34,6 +36,7 @@ interface Expense {
   amount: number;
   category_id: number;
   recurring: number;
+  position: number;
 }
 
 interface Props {
@@ -92,7 +95,7 @@ export function SnapshotDetail({ snapshot, editMode, onUpdate }: Props) {
             className="w-full flex items-center justify-between px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             onClick={() => setSankeyOpen((o) => !o)}
           >
-            <span>Income / Expense Flow (Sankey)</span>
+            <span>{t.sankeyHeadingCollapsible}</span>
             <span className="text-gray-400">{sankeyOpen ? '▲' : '▼'}</span>
           </button>
           {sankeyOpen && (
@@ -108,7 +111,7 @@ export function SnapshotDetail({ snapshot, editMode, onUpdate }: Props) {
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg p-6 relative left-1/2 -translate-x-1/2 w-[min(96rem,calc(100vw-2rem))]">
           <h2 className="text-base font-semibold text-gray-700 mb-4">
-            Income / Expense Flow
+            {t.sankeyHeading}
           </h2>
           <SankeyDiagram
             incomes={snapshot.incomes}

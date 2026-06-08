@@ -4,6 +4,7 @@ import { sankeyLinkHorizontal } from 'd3-sankey';
 import { buildSankeyGraph } from '../../lib/sankey-builder';
 import { layoutSankey, type PositionedNode, type PositionedLink } from '../../lib/sankey-layout';
 import { formatEurCents } from '../../lib/currency';
+import { t } from '../../lib/strings';
 
 interface Income {
   id: number;
@@ -43,7 +44,7 @@ export function SankeyDiagram({ incomes, expenses, categories }: Props) {
   const graph = buildSankeyGraph(incomes, expenses, categories);
 
   if (graph.nodes.length === 0) {
-    return <p className="text-sm text-gray-400 italic">No data to display in Sankey.</p>;
+    return <p className="text-sm text-gray-400 italic">{t.sankeyNoData}</p>;
   }
 
   const { nodes, links, width, height } = layoutSankey(graph);

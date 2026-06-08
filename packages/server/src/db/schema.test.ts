@@ -33,9 +33,10 @@ describe('schema', () => {
 
   test('does not re-run migrations on second call', () => {
     const db = makeDb();
+    const before = db.query<{ n: number }, []>('SELECT COUNT(*) as n FROM migrations').get()!.n;
     runMigrations(db); // second call — should be a no-op
-    const count = db.query<{ n: number }, []>('SELECT COUNT(*) as n FROM migrations').get()!.n;
-    expect(count).toBe(1);
+    const after = db.query<{ n: number }, []>('SELECT COUNT(*) as n FROM migrations').get()!.n;
+    expect(after).toBe(before);
   });
 
   test('migration files sort in numeric not lexicographic order', () => {

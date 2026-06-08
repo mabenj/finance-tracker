@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
+import { t } from '../../lib/strings';
 
 interface Category {
   id: number;
   name: string;
   parent_id: number | null;
+  position: number;
 }
 
 interface Props {
@@ -110,7 +112,7 @@ export function CategoryPicker({ snapshotId, categories, value, onChange, onCate
                     if (e.key === 'Enter') submitNew();
                     if (e.key === 'Escape') { setNewLevel(null); setNewName(''); }
                   }}
-                  placeholder="New category name"
+                  placeholder={t.newCategoryName}
                   className="border border-blue-400 rounded px-2 py-1 text-sm w-40"
                 />
                 <button
@@ -118,7 +120,7 @@ export function CategoryPicker({ snapshotId, categories, value, onChange, onCate
                   disabled={create.isLoading}
                   className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
                 >
-                  Add
+                  {t.add}
                 </button>
                 <button
                   onClick={() => { setNewLevel(null); setNewName(''); }}
@@ -133,13 +135,13 @@ export function CategoryPicker({ snapshotId, categories, value, onChange, onCate
                 value={path[level] ?? ''}
                 onChange={(e) => handleChange(level, e.target.value)}
               >
-                <option value="" disabled>— select —</option>
+                <option value="" disabled>{t.selectPlaceholder}</option>
                 {opts.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
                 ))}
-                <option value="__new__">+ New…</option>
+                <option value="__new__">{t.addNew}</option>
               </select>
             )}
           </span>

@@ -3,6 +3,8 @@ import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
 import { formatEurCents, centsToEuroStr, eurosToCents, sanitizeEuroInput } from '../../lib/currency';
 import { getIncomeCategories } from '../../lib/income-autocomplete';
+import { ReorderButtons } from './ReorderButtons';
+import { t } from '../../lib/strings';
 
 interface Income {
   id: number;
@@ -79,6 +81,19 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
     onError: (err) => showToast(err.message),
   });
 
+  const reorder = trpc.incomes.reorder.useMutation({
+    onSuccess: () => onUpdate(),
+    onError: (err) => showToast(err.message),
+  });
+
+  function move(index: number, dir: 'up' | 'down') {
+    const target = dir === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= incomes.length) return;
+    const orderedIds = incomes.map((i) => i.id);
+    [orderedIds[index], orderedIds[target]] = [orderedIds[target], orderedIds[index]];
+    reorder.mutate({ snapshotId, orderedIds });
+  }
+
   function startEdit(inc: Income) {
     setEditingId(inc.id);
     setRow({
@@ -92,7 +107,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
   function saveRow(id?: number) {
     const amountCents = eurosToCents(row.amount);
     if (amountCents === null) {
-      showToast('Invalid amount — enter a whole euro amount');
+      showToast(t.invalidAmount);
       return;
     }
     upsert.mutate({
@@ -130,7 +145,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
     return (
       <tr key={id ?? 'new'} className="border-b border-blue-100 bg-blue-50">
         <td className="py-1 pr-2 pl-3">
-          <input className={inputCls} value={row.name} onChange={field('name')} onKeyDown={onKey(save)} autoFocus placeholder="Income name" />
+          <input className={inputCls} value={row.name} onChange={field('name')} onKeyDown={onKey(save)} autoFocus placeholder={t.incomeName} />
         </td>
         <td className="py-1 pr-2">
           <input
@@ -148,7 +163,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
             value={row.category}
             onChange={field('category')}
             onKeyDown={onKey(save)}
-            placeholder="Category"
+            placeholder={t.category}
           />
         </td>
         <td className="py-1 pr-2 text-center">
@@ -163,14 +178,14 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
           <button
             onClick={save}
             disabled={upsert.isLoading}
-            title="Confirm"
+            title={t.confirm}
             className="inline-flex items-center text-green-700 hover:text-green-900 disabled:opacity-50 p-1 mr-1"
           >
             <IconCheck />
           </button>
           <button
             onClick={() => setEditingId(null)}
-            title="Cancel"
+            title={t.cancel}
             className="inline-flex items-center text-gray-400 hover:text-gray-600 p-1"
           >
             <IconX />
@@ -191,13 +206,13 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
       </datalist>
 
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold">Income</h2>
+        <h2 className="text-lg font-semibold">{t.income}</h2>
         {editMode && editingId !== 'new' && (
           <button
             onClick={() => { setRow(BLANK_EDIT); setEditingId('new'); }}
             className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700"
           >
-            + Add Income
+            {t.addIncome}
           </button>
         )}
       </div>
@@ -206,15 +221,15 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-left text-gray-500">
-              <th className="py-2 pl-3 pr-4 font-medium">Name</th>
-              <th className="py-2 pr-4 font-medium text-right">Amount</th>
-              <th className="py-2 pr-4 font-medium">Category</th>
-              <th className="py-2 pr-4 font-medium text-center">Recurring</th>
+              <th className="py-2 pl-3 pr-4 font-medium">{t.name}</th>
+              <th className="py-2 pr-4 font-medium text-right">{t.amount}</th>
+              <th className="py-2 pr-4 font-medium">{t.category}</th>
+              <th className="py-2 pr-4 font-medium text-center">{t.recurring}</th>
               {editMode && <th className="py-2 pr-3 font-medium w-16" />}
             </tr>
           </thead>
           <tbody>
-            {incomes.map((inc) =>
+            {incomes.map((inc, index) =>
               editingId === inc.id ? (
                 renderEditRow(inc.id)
               ) : (
@@ -224,23 +239,30 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
                   <td className="py-2 pr-4 text-gray-600">{inc.category}</td>
                   <td className="py-2 pr-4 text-center">
                     {inc.recurring === 1 ? (
-                      <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Recurring</span>
+                      <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">{t.recurring}</span>
                     ) : (
                       <span className="text-gray-300 text-xs">—</span>
                     )}
                   </td>
                   {editMode && (
                     <td className="py-2 pr-3 whitespace-nowrap text-right">
+                      <ReorderButtons
+                        canMoveUp={index > 0}
+                        canMoveDown={index < incomes.length - 1}
+                        pending={reorder.isLoading}
+                        onMoveUp={() => move(index, 'up')}
+                        onMoveDown={() => move(index, 'down')}
+                      />
                       <button
                         onClick={() => startEdit(inc)}
-                        title="Edit"
+                        title={t.edit}
                         className="inline-flex items-center text-blue-600 hover:text-blue-800 p-1 mr-1"
                       >
                         <IconPencil />
                       </button>
                       <button
                         onClick={() => setPendingDeleteId(inc.id)}
-                        title="Delete"
+                        title={t.delete}
                         className="inline-flex items-center text-red-400 hover:text-red-600 p-1"
                       >
                         <IconTrash />
@@ -256,7 +278,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
             <tfoot>
               <tr className="bg-gray-50 border-t border-gray-200">
                 <td className="py-2 pl-3 pr-4 text-sm font-medium text-gray-500" colSpan={editMode ? 4 : 3}>
-                  Total
+                  {t.total}
                 </td>
                 <td className="py-2 pr-4 text-right tabular-nums font-medium">
                   {formatEurCents(total)}
@@ -269,9 +291,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
 
         {incomes.length === 0 && editingId !== 'new' && (
           <div className="py-8 text-center text-gray-400 text-sm">
-            {editMode
-              ? 'No income entries yet — click "+ Add Income" above to start adding.'
-              : 'No income entries yet — switch to edit mode to start adding.'}
+            {editMode ? t.noIncomeEdit : t.noIncomeView}
           </div>
         )}
       </div>
@@ -279,20 +299,20 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
       {pendingDeleteId !== null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 w-80">
-            <h2 className="text-base font-semibold mb-2">Delete income entry?</h2>
+            <h2 className="text-base font-semibold mb-2">{t.deleteIncomeTitle}</h2>
             <p className="text-sm text-gray-600 mb-5">
-              This will permanently remove the entry from this snapshot.
+              {t.deleteEntryBody}
             </p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setPendingDeleteId(null)} className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900">
-                Cancel
+                {t.cancel}
               </button>
               <button
                 onClick={() => remove.mutate({ id: pendingDeleteId, snapshotId })}
                 disabled={remove.isLoading}
                 className="bg-red-600 text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-red-700 disabled:opacity-50"
               >
-                {remove.isLoading ? 'Deleting…' : 'Delete'}
+                {remove.isLoading ? t.deleting : t.delete}
               </button>
             </div>
           </div>

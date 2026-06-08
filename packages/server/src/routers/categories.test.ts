@@ -247,3 +247,57 @@ describe('categories router', () => {
     expect(preview.totalAmount).toBe(0);
   });
 });
+
+describe('categories reorder', () => {
+  test('reorder applies order among top-level categories', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const a = await caller.categories.create({ snapshotId: snap.id, name: 'A' });
+    const b = await caller.categories.create({ snapshotId: snap.id, name: 'B' });
+    const c = await caller.categories.create({ snapshotId: snap.id, name: 'C' });
+    const reordered = [c.id, a.id, b.id];
+
+    await caller.categories.reorder({ snapshotId: snap.id, parentId: null, orderedIds: reordered });
+
+    const full = await caller.snapshots.get({ id: snap.id });
+    const topLevel = full.categories.filter((cat) => cat.parent_id === null).map((cat) => cat.id);
+    expect(topLevel).toEqual(reordered);
+  });
+
+  test('reorder applies order among subcategories of one parent', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const parent = await caller.categories.create({ snapshotId: snap.id, name: 'P' });
+    const s1 = await caller.categories.create({ snapshotId: snap.id, name: 's1', parentId: parent.id });
+    const s2 = await caller.categories.create({ snapshotId: snap.id, name: 's2', parentId: parent.id });
+    const reordered = [s2.id, s1.id];
+
+    await caller.categories.reorder({ snapshotId: snap.id, parentId: parent.id, orderedIds: reordered });
+
+    const full = await caller.snapshots.get({ id: snap.id });
+    const subs = full.categories.filter((cat) => cat.parent_id === parent.id).map((cat) => cat.id);
+    expect(subs).toEqual(reordered);
+  });
+
+  test('reorder rejects mixing categories from different parents', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const top = await caller.categories.create({ snapshotId: snap.id, name: 'Top' });
+    const parent = await caller.categories.create({ snapshotId: snap.id, name: 'P' });
+    const sub = await caller.categories.create({ snapshotId: snap.id, name: 's', parentId: parent.id });
+    // the top-level scope must not accept a subcategory id
+    await expect(
+      caller.categories.reorder({ snapshotId: snap.id, parentId: null, orderedIds: [top.id, sub.id] })
+    ).rejects.toThrow();
+  });
+
+  test('reorder rejects when a sibling is missing', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const a = await caller.categories.create({ snapshotId: snap.id, name: 'A' });
+    await caller.categories.create({ snapshotId: snap.id, name: 'B' });
+    await expect(
+      caller.categories.reorder({ snapshotId: snap.id, parentId: null, orderedIds: [a.id] })
+    ).rejects.toThrow();
+  });
+});

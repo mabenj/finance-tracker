@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, publicProcedure, TRPCError } from '../trpc';
 import { trimmedText, eurCents } from '../lib/validators';
 import { touchSnapshot } from '../lib/touch-snapshot';
+import { reorderWithinScope } from '../lib/reorder';
 import type { Context } from '../trpc';
 
 interface ExpenseRow {
@@ -56,13 +57,27 @@ export const expensesRouter = router({
       const recurringInt = recurring ? 1 : 0;
 
       if (id !== undefined) {
-        requireExpense(ctx.db, id, snapshotId);
+        const existing = requireExpense(ctx.db, id, snapshotId);
         requireCategoryInSnapshot(ctx.db, categoryId, snapshotId);
 
-        ctx.db.run(
-          'UPDATE expenses SET name = ?, amount = ?, category_id = ?, recurring = ? WHERE id = ? AND snapshot_id = ?',
-          [name, amount, categoryId, recurringInt, id, snapshotId]
-        );
+        if (existing.category_id === categoryId) {
+          // Same category — position is unchanged.
+          ctx.db.run(
+            'UPDATE expenses SET name = ?, amount = ?, category_id = ?, recurring = ? WHERE id = ? AND snapshot_id = ?',
+            [name, amount, categoryId, recurringInt, id, snapshotId]
+          );
+        } else {
+          // Re-parented to a different category — append to the end of the
+          // new category so it lands in a well-defined spot (its old position
+          // would be meaningless among the new siblings).
+          ctx.db.run(
+            `UPDATE expenses
+             SET name = ?, amount = ?, category_id = ?, recurring = ?,
+                 position = (SELECT COALESCE(MAX(position) + 1, 0) FROM expenses WHERE category_id = ?)
+             WHERE id = ? AND snapshot_id = ?`,
+            [name, amount, categoryId, recurringInt, categoryId, id, snapshotId]
+          );
+        }
 
         touchSnapshot(ctx.db, snapshotId);
 
@@ -83,9 +98,10 @@ export const expensesRouter = router({
 
         const result = ctx.db
           .prepare(
-            'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)'
+            `INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring, position)
+             VALUES (?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position) + 1, 0) FROM expenses WHERE category_id = ?))`
           )
-          .run(snapshotId, name, amount, categoryId, recurringInt);
+          .run(snapshotId, name, amount, categoryId, recurringInt, categoryId);
 
         const newId = Number(result.lastInsertRowid);
         touchSnapshot(ctx.db, snapshotId);
@@ -111,4 +127,23 @@ export const expensesRouter = router({
       touchSnapshot(ctx.db, input.snapshotId);
       return expense;
     }),
+
+  reorder: publicProcedure
+    .input(
+      z.object({
+        snapshotId: z.number().int().positive(),
+        categoryId: z.number().int().positive(),
+        orderedIds: z.array(z.number().int().positive()),
+      })
+    )
+    .mutation(({ ctx, input }) =>
+      reorderWithinScope(
+        ctx.db,
+        'expenses',
+        input.snapshotId,
+        'snapshot_id = ? AND category_id = ?',
+        [input.snapshotId, input.categoryId],
+        input.orderedIds
+      )
+    ),
 });

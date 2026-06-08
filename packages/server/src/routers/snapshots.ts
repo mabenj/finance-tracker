@@ -18,6 +18,7 @@ interface AccountRow {
   category: string;
   balance: number;
   total_paid: number | null;
+  position: number;
 }
 
 interface IncomeRow {
@@ -26,12 +27,14 @@ interface IncomeRow {
   amount: number;
   category: string;
   recurring: number;
+  position: number;
 }
 
 interface CategoryRow {
   id: number;
   name: string;
   parent_id: number | null;
+  position: number;
 }
 
 interface ExpenseRow {
@@ -40,6 +43,7 @@ interface ExpenseRow {
   amount: number;
   category_id: number;
   recurring: number;
+  position: number;
 }
 
 
@@ -69,33 +73,33 @@ export const snapshotsRouter = router({
 
       const accounts = ctx.db
         .query<AccountRow, [number]>(
-          'SELECT id, name, type, category, balance, total_paid FROM accounts WHERE snapshot_id = ? ORDER BY id'
+          'SELECT id, name, type, category, balance, total_paid, position FROM accounts WHERE snapshot_id = ? ORDER BY position, id'
         )
         .all(input.id);
 
       const previousAccounts = prevSnap
         ? ctx.db
             .query<AccountRow, [number]>(
-              'SELECT id, name, type, category, balance, total_paid FROM accounts WHERE snapshot_id = ? ORDER BY id'
+              'SELECT id, name, type, category, balance, total_paid, position FROM accounts WHERE snapshot_id = ? ORDER BY position, id'
             )
             .all(prevSnap.id)
         : [];
 
       const incomes = ctx.db
         .query<IncomeRow, [number]>(
-          'SELECT id, name, amount, category, recurring FROM incomes WHERE snapshot_id = ? ORDER BY id'
+          'SELECT id, name, amount, category, recurring, position FROM incomes WHERE snapshot_id = ? ORDER BY position, id'
         )
         .all(input.id);
 
       const categories = ctx.db
         .query<CategoryRow, [number]>(
-          'SELECT id, name, parent_id FROM expense_categories WHERE snapshot_id = ? ORDER BY id'
+          'SELECT id, name, parent_id, position FROM expense_categories WHERE snapshot_id = ? ORDER BY position, id'
         )
         .all(input.id);
 
       const expenses = ctx.db
         .query<ExpenseRow, [number]>(
-          'SELECT id, name, amount, category_id, recurring FROM expenses WHERE snapshot_id = ? ORDER BY id'
+          'SELECT id, name, amount, category_id, recurring, position FROM expenses WHERE snapshot_id = ? ORDER BY position, id'
         )
         .all(input.id);
 

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, publicProcedure, TRPCError } from '../trpc';
 import { trimmedText } from '../lib/validators';
 import { touchSnapshot } from '../lib/touch-snapshot';
+import { reorderWithinScope } from '../lib/reorder';
 import type { Context } from '../trpc';
 
 interface CategoryRow {
@@ -9,12 +10,13 @@ interface CategoryRow {
   snapshot_id: number;
   name: string;
   parent_id: number | null;
+  position: number;
 }
 
 function requireCategory(db: Context['db'], id: number, snapshotId: number): CategoryRow {
   const row = db
     .query<CategoryRow, [number, number]>(
-      'SELECT id, snapshot_id, name, parent_id FROM expense_categories WHERE id = ? AND snapshot_id = ?'
+      'SELECT id, snapshot_id, name, parent_id, position FROM expense_categories WHERE id = ? AND snapshot_id = ?'
     )
     .get(id, snapshotId);
   if (!row) {
@@ -49,12 +51,16 @@ export const categoriesRouter = router({
       try {
         const result = ctx.db
           .prepare(
-            'INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, ?)'
+            `INSERT INTO expense_categories (snapshot_id, name, parent_id, position)
+             VALUES (?, ?, ?, (SELECT COALESCE(MAX(position) + 1, 0) FROM expense_categories WHERE snapshot_id = ? AND parent_id IS ?))`
           )
-          .run(snapshotId, name, parentId ?? null);
+          .run(snapshotId, name, parentId ?? null, snapshotId, parentId ?? null);
         const id = Number(result.lastInsertRowid);
+        const position = ctx.db
+          .query<{ position: number }, [number]>('SELECT position FROM expense_categories WHERE id = ?')
+          .get(id)!.position;
         touchSnapshot(ctx.db, snapshotId);
-        return { id, snapshot_id: snapshotId, name, parent_id: parentId ?? null };
+        return { id, snapshot_id: snapshotId, name, parent_id: parentId ?? null, position };
       } catch (err) {
         if (err instanceof Error && err.message.includes('UNIQUE constraint failed')) {
           throw new TRPCError({
@@ -137,4 +143,23 @@ export const categoriesRouter = router({
       touchSnapshot(ctx.db, input.snapshotId);
       return cat;
     }),
+
+  reorder: publicProcedure
+    .input(
+      z.object({
+        snapshotId: z.number().int().positive(),
+        parentId: z.number().int().positive().nullable(),
+        orderedIds: z.array(z.number().int().positive()),
+      })
+    )
+    .mutation(({ ctx, input }) =>
+      reorderWithinScope(
+        ctx.db,
+        'expense_categories',
+        input.snapshotId,
+        'snapshot_id = ? AND parent_id IS ?',
+        [input.snapshotId, input.parentId],
+        input.orderedIds
+      )
+    ),
 });

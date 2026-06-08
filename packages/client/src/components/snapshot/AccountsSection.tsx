@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
 import { formatEurCents, centsToEuroStr, eurosToCents, sanitizeEuroInput } from '../../lib/currency';
+import { ReorderButtons } from './ReorderButtons';
+import { t } from '../../lib/strings';
 
 interface Account {
   id: number;
@@ -90,6 +92,19 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
     onError: (err) => showToast(err.message),
   });
 
+  const reorder = trpc.accounts.reorder.useMutation({
+    onSuccess: () => onUpdate(),
+    onError: (err) => showToast(err.message),
+  });
+
+  function move(index: number, dir: 'up' | 'down') {
+    const target = dir === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= accounts.length) return;
+    const orderedIds = accounts.map((a) => a.id);
+    [orderedIds[index], orderedIds[target]] = [orderedIds[target], orderedIds[index]];
+    reorder.mutate({ snapshotId, orderedIds });
+  }
+
   function startEdit(acc: Account) {
     setEditingId(acc.id);
     setRow({
@@ -104,12 +119,12 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
   function saveRow(id?: number) {
     const balanceCents = eurosToCents(row.balance);
     if (balanceCents === null) {
-      showToast('Invalid balance — enter a whole euro amount');
+      showToast(t.invalidBalance);
       return;
     }
     const totalPaidCents = row.totalPaid !== '' ? eurosToCents(row.totalPaid) : null;
     if (row.totalPaid !== '' && totalPaidCents === null) {
-      showToast('Invalid total paid — enter a whole euro amount');
+      showToast(t.invalidTotalPaid);
       return;
     }
     upsert.mutate({
@@ -149,16 +164,16 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
     return (
       <tr key={id ?? 'new'} className="border-b border-blue-100 bg-blue-50">
         <td className="py-1 pr-2 pl-3">
-          <input className={inputCls} value={row.name} onChange={field('name')} onKeyDown={onKey(save)} autoFocus placeholder="Account name" />
+          <input className={inputCls} value={row.name} onChange={field('name')} onKeyDown={onKey(save)} autoFocus placeholder={t.accountName} />
         </td>
         <td className="py-1 pr-2">
           <select className="border border-gray-300 rounded px-2 py-1 text-sm" value={row.type} onChange={field('type')}>
-            <option value="asset">Asset</option>
-            <option value="liability">Liability</option>
+            <option value="asset">{t.accountType.asset}</option>
+            <option value="liability">{t.accountType.liability}</option>
           </select>
         </td>
         <td className="py-1 pr-2">
-          <input className={inputCls} value={row.category} onChange={field('category')} onKeyDown={onKey(save)} placeholder="Category" />
+          <input className={inputCls} value={row.category} onChange={field('category')} onKeyDown={onKey(save)} placeholder={t.category} />
         </td>
         <td className="py-1 pr-2">
           <input type="number" step="1" min="0" className={`${inputCls} text-right`} value={row.balance} onChange={currencyField('balance')} onKeyDown={onKey(save)} />
@@ -170,14 +185,14 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
           <button
             onClick={save}
             disabled={upsert.isLoading}
-            title="Confirm"
+            title={t.confirm}
             className="inline-flex items-center text-green-700 hover:text-green-900 disabled:opacity-50 p-1 mr-1"
           >
             <IconCheck />
           </button>
           <button
             onClick={() => setEditingId(null)}
-            title="Cancel"
+            title={t.cancel}
             className="inline-flex items-center text-gray-400 hover:text-gray-600 p-1"
           >
             <IconX />
@@ -190,13 +205,13 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold">Accounts</h2>
+        <h2 className="text-lg font-semibold">{t.accounts}</h2>
         {editMode && editingId !== 'new' && (
           <button
             onClick={() => { setRow(BLANK_EDIT); setEditingId('new'); }}
             className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700"
           >
-            + Add Account
+            {t.addAccount}
           </button>
         )}
       </div>
@@ -205,22 +220,22 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-left text-gray-500">
-              <th className="py-2 pl-3 pr-4 font-medium">Name</th>
-              <th className="py-2 pr-4 font-medium">Type</th>
-              <th className="py-2 pr-4 font-medium">Category</th>
-              <th className="py-2 pr-4 font-medium text-right">Balance</th>
-              <th className="py-2 pr-4 font-medium text-right">Total Paid</th>
+              <th className="py-2 pl-3 pr-4 font-medium">{t.name}</th>
+              <th className="py-2 pr-4 font-medium">{t.type}</th>
+              <th className="py-2 pr-4 font-medium">{t.category}</th>
+              <th className="py-2 pr-4 font-medium text-right">{t.balance}</th>
+              <th className="py-2 pr-4 font-medium text-right">{t.totalPaid}</th>
               {editMode && <th className="py-2 pr-3 font-medium w-16" />}
             </tr>
           </thead>
           <tbody>
-            {accounts.map((acc) =>
+            {accounts.map((acc, index) =>
               editingId === acc.id ? (
                 renderEditRow(acc.id)
               ) : (
                 <tr key={acc.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                   <td className="py-2 pl-3 pr-4">{acc.name}</td>
-                  <td className="py-2 pr-4 capitalize">{acc.type}</td>
+                  <td className="py-2 pr-4">{t.accountType[acc.type] ?? acc.type}</td>
                   <td className="py-2 pr-4 text-gray-600">{acc.category}</td>
                   <td className="py-2 pr-4 text-right tabular-nums">{formatEurCents(acc.balance)}</td>
                   <td className="py-2 pr-4 text-right tabular-nums text-gray-500">
@@ -228,17 +243,24 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
                   </td>
                   {editMode && (
                     <td className="py-2 pr-3 whitespace-nowrap text-right">
+                      <ReorderButtons
+                        canMoveUp={index > 0}
+                        canMoveDown={index < accounts.length - 1}
+                        pending={reorder.isLoading}
+                        onMoveUp={() => move(index, 'up')}
+                        onMoveDown={() => move(index, 'down')}
+                      />
                       {/* B2: pencil icon per spec §5.2 */}
                       <button
                         onClick={() => startEdit(acc)}
-                        title="Edit"
+                        title={t.edit}
                         className="inline-flex items-center text-blue-600 hover:text-blue-800 p-1 mr-1"
                       >
                         <IconPencil />
                       </button>
                       <button
                         onClick={() => setPendingDeleteId(acc.id)}
-                        title="Delete"
+                        title={t.delete}
                         className="inline-flex items-center text-red-400 hover:text-red-600 p-1"
                       >
                         <IconTrash />
@@ -254,7 +276,7 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
 
         {accounts.length === 0 && editingId !== 'new' && (
           <div className="py-8 text-center text-gray-400 text-sm">
-            No accounts yet — switch to edit mode to add one.
+            {t.noAccounts}
           </div>
         )}
       </div>
@@ -263,20 +285,20 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
       {pendingDeleteId !== null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 w-80">
-            <h2 className="text-base font-semibold mb-2">Delete account?</h2>
+            <h2 className="text-base font-semibold mb-2">{t.deleteAccountTitle}</h2>
             <p className="text-sm text-gray-600 mb-5">
-              This will permanently remove the account from this snapshot.
+              {t.deleteAccountBody}
             </p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setPendingDeleteId(null)} className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900">
-                Cancel
+                {t.cancel}
               </button>
               <button
                 onClick={() => remove.mutate({ id: pendingDeleteId, snapshotId })}
                 disabled={remove.isLoading}
                 className="bg-red-600 text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-red-700 disabled:opacity-50"
               >
-                {remove.isLoading ? 'Deleting…' : 'Delete'}
+                {remove.isLoading ? t.deleting : t.delete}
               </button>
             </div>
           </div>
