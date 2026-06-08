@@ -87,7 +87,7 @@ export function SnapshotDetail({ snapshot, editMode, onUpdate }: Props) {
 
       {/* Sankey Diagram */}
       {editMode ? (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden relative left-1/2 -translate-x-1/2 w-[min(96rem,calc(100vw-2rem))]">
           <button
             className="w-full flex items-center justify-between px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             onClick={() => setSankeyOpen((o) => !o)}
@@ -106,7 +106,7 @@ export function SnapshotDetail({ snapshot, editMode, onUpdate }: Props) {
           )}
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="bg-white border border-gray-200 rounded-lg p-6 relative left-1/2 -translate-x-1/2 w-[min(96rem,calc(100vw-2rem))]">
           <h2 className="text-base font-semibold text-gray-700 mb-4">
             Income / Expense Flow
           </h2>

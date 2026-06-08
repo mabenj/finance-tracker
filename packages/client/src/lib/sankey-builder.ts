@@ -1,15 +1,34 @@
 import { sumTree } from './sum-tree';
 
+export type SankeyNodeType =
+  | 'income'
+  | 'unspecified-income'
+  | 'deficit'
+  | 'budget'
+  | 'category'
+  | 'expense'
+  | 'savings';
+
 export interface SankeyNode {
   id: string;
-  label: string;
-  type: 'income' | 'expenses' | 'savings' | 'category' | 'unspecified-income' | 'deficit';
+  /** Bare name, no amount/percentage — the renderer composes the full label. */
+  name: string;
+  type: SankeyNodeType;
+  /** Subtree total in EUR cents (sumTree semantics). */
+  value: number;
+  /** Tree depth: income=0, budget=1, top category=2, deeper=parent+1, expense=parentCat+1, savings=2. Used to size height to the densest column. */
+  depth: number;
+  /** Fill/stroke color. Top-category hue propagates down its subtree. */
+  color: string;
+  /** Global pre-order DFS rank — drives deterministic, no-crossing column ordering. */
+  rank: number;
 }
 
 export interface SankeyLink {
   source: string;
   target: string;
   value: number;
+  color: string;
 }
 
 export interface SankeyGraph {
@@ -17,114 +36,147 @@ export interface SankeyGraph {
   links: SankeyLink[];
 }
 
-export function buildSankeyGraph(
-  incomes: Array<{ id: number; name: string; amount: number }>,
-  expenses: Array<{ id: number; name: string; amount: number; category_id: number }>,
-  categories: Array<{ id: number; name: string; parent_id: number | null }>
-): SankeyGraph {
+// Fixed-role colors (carried over from the previous renderer).
+const NEUTRAL = '#64748b'; // income sources + budget trunk
+const UNSPECIFIED = '#f59e0b';
+const SAVINGS = '#22c55e';
+const DEFICIT = '#ef4444';
+
+// 8-hue categorical palette; top categories cycle through it by DFS order.
+const PALETTE = [
+  '#3b82f6',
+  '#8b5cf6',
+  '#ec4899',
+  '#f97316',
+  '#14b8a6',
+  '#eab308',
+  '#06b6d4',
+  '#a855f7',
+];
+
+type Cat = { id: number; name: string; parent_id: number | null };
+type Exp = { id: number; name: string; amount: number; category_id: number };
+type Inc = { id: number; name: string; amount: number };
+
+const BUDGET = 'budget';
+
+/**
+ * Build the Sankey graph for the single-trunk "Budget" model:
+ *   income sources → Budget → expense categories (→ subcategories → individual expenses) + Savings.
+ *
+ * Nodes carry a global pre-order DFS `rank`; the layout sorts each column by it so
+ * every subtree occupies one contiguous band and no flow lines cross.
+ */
+export function buildSankeyGraph(incomes: Inc[], expenses: Exp[], categories: Cat[]): SankeyGraph {
   const nodes: SankeyNode[] = [];
   const links: SankeyLink[] = [];
 
-  const totalIncome = incomes.reduce((s, i) => s + i.amount, 0);
-  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
-  const savings = totalIncome - totalExpenses;
+  // Zero-value handling: drop zero-amount incomes/expenses up front (§11).
+  const incs = incomes.filter((i) => i.amount > 0);
+  const exps = expenses.filter((e) => e.amount > 0);
 
-  // Nothing to show — let the component render its empty state
-  if (incomes.length === 0 && expenses.length === 0) {
+  const totalIncome = incs.reduce((s, i) => s + i.amount, 0);
+  const totalExpenses = exps.reduce((s, e) => s + e.amount, 0);
+
+  // §3 edge-state precedence — first match wins.
+  // 1. Empty
+  if (totalIncome === 0 && totalExpenses === 0) {
     return { nodes: [], links: [] };
   }
 
-  const catTotals = sumTree(categories, expenses);
-  const topCats = categories.filter((c) => c.parent_id === null);
-
-  // No income: unspecified source flows to expense categories directly
-  if (incomes.length === 0) {
-    nodes.push({ id: 'unspecified-income', label: 'Unspecified Income', type: 'unspecified-income' });
-    for (const cat of categories) {
-      if ((catTotals.get(cat.id) ?? 0) > 0) {
-        nodes.push({ id: `cat-${cat.id}`, label: cat.name, type: 'category' });
-      }
+  const catTotals = sumTree(categories, exps);
+  const childCats = new Map<number, Cat[]>();
+  for (const c of categories) {
+    if (c.parent_id !== null) {
+      (childCats.get(c.parent_id) ?? childCats.set(c.parent_id, []).get(c.parent_id)!).push(c);
     }
-    for (const cat of topCats) {
-      const val = catTotals.get(cat.id) ?? 0;
-      if (val > 0) links.push({ source: 'unspecified-income', target: `cat-${cat.id}`, value: val });
-    }
-    addCategoryLinks(categories, catTotals, links);
-    return { nodes, links };
+  }
+  const expsByCat = new Map<number, Exp[]>();
+  for (const e of exps) {
+    (expsByCat.get(e.category_id) ?? expsByCat.set(e.category_id, []).get(e.category_id)!).push(e);
   }
 
-  // No expenses: income flows directly to Savings
-  if (expenses.length === 0) {
-    for (const income of incomes) {
-      nodes.push({ id: `income-${income.id}`, label: income.name, type: 'income' });
+  // value-descending, then name ascending (locale-aware), then id ascending.
+  const byValueDesc = <T extends { value: number; name: string; id: number }>(a: T, b: T) =>
+    b.value - a.value || a.name.localeCompare(b.name) || a.id - b.id;
+
+  let rank = 0;
+
+  // --- Income side (column 0), ordered value-desc; deficit/unspecified pinned bottom ---
+  const isNoIncome = totalIncome === 0; // state 2
+  if (isNoIncome) {
+    nodes.push({ id: 'unspecified', name: 'Unspecified Income', type: 'unspecified-income', value: totalExpenses, depth: 0, color: UNSPECIFIED, rank: rank++ });
+    links.push({ source: 'unspecified', target: BUDGET, value: totalExpenses, color: UNSPECIFIED });
+  } else {
+    const sorted = [...incs]
+      .map((i) => ({ id: i.id, name: i.name, value: i.amount }))
+      .sort(byValueDesc);
+    for (const i of sorted) {
+      const id = `income-${i.id}`;
+      nodes.push({ id, name: i.name, type: 'income', value: i.value, depth: 0, color: NEUTRAL, rank: rank++ });
+      links.push({ source: id, target: BUDGET, value: i.value, color: NEUTRAL });
     }
-    nodes.push({ id: 'savings', label: 'Savings', type: 'savings' });
-    for (const income of incomes) {
-      links.push({ source: `income-${income.id}`, target: 'savings', value: income.amount });
-    }
-    return { nodes, links };
   }
 
-  const isDeficit = savings < 0;
-
-  // Income source nodes
-  for (const income of incomes) {
-    nodes.push({ id: `income-${income.id}`, label: income.name, type: 'income' });
-  }
-
+  // Deficit source pinned to the bottom of the income column (state 4).
+  const savings = totalIncome - totalExpenses;
+  const isDeficit = !isNoIncome && savings < 0;
   if (isDeficit) {
-    nodes.push({ id: 'deficit', label: 'Deficit', type: 'deficit' });
+    nodes.push({ id: 'deficit', name: 'Deficit', type: 'deficit', value: -savings, depth: 0, color: DEFICIT, rank: rank++ });
+    links.push({ source: 'deficit', target: BUDGET, value: -savings, color: DEFICIT });
   }
 
-  // Expenses aggregate node (receives all income; distributes to categories + savings)
-  nodes.push({ id: 'expenses', label: 'Expenses', type: 'expenses' });
+  // --- Budget trunk (column 1, alone); labelled "Expenses" in the UI ---
+  nodes.push({ id: BUDGET, name: 'Expenses', type: 'budget', value: Math.max(totalIncome, totalExpenses), depth: 1, color: NEUTRAL, rank: rank++ });
 
-  if (!isDeficit && savings > 0) {
-    nodes.push({ id: 'savings', label: 'Savings', type: 'savings' });
+  // --- Expense subtree, DFS from Budget over top categories (value-desc) ---
+  const topCats = categories
+    .filter((c) => c.parent_id === null && (catTotals.get(c.id) ?? 0) > 0)
+    .map((c) => ({ id: c.id, name: c.name, value: catTotals.get(c.id) ?? 0 }))
+    .sort(byValueDesc);
+
+  topCats.forEach((tc, idx) => {
+    const groupColor = PALETTE[idx % PALETTE.length];
+    links.push({ source: BUDGET, target: `cat-${tc.id}`, value: tc.value, color: groupColor });
+    visitCategory(tc.id, groupColor, 2);
+  });
+
+  // --- Savings outflow, pinned to the bottom of Budget's outflows (state 6) ---
+  if (!isNoIncome && savings > 0) {
+    nodes.push({ id: 'savings', name: 'Savings', type: 'savings', value: savings, depth: 2, color: SAVINGS, rank: rank++ });
+    links.push({ source: BUDGET, target: 'savings', value: savings, color: SAVINGS });
   }
-
-  for (const cat of categories) {
-    if ((catTotals.get(cat.id) ?? 0) > 0) {
-      nodes.push({ id: `cat-${cat.id}`, label: cat.name, type: 'category' });
-    }
-  }
-
-  // Income → Expenses
-  for (const income of incomes) {
-    links.push({ source: `income-${income.id}`, target: 'expenses', value: income.amount });
-  }
-
-  // Deficit → Expenses
-  if (isDeficit) {
-    links.push({ source: 'deficit', target: 'expenses', value: -savings });
-  }
-
-  // Expenses → top-level categories
-  for (const cat of topCats) {
-    const val = catTotals.get(cat.id) ?? 0;
-    if (val > 0) links.push({ source: 'expenses', target: `cat-${cat.id}`, value: val });
-  }
-
-  // Expenses → Savings (residual)
-  if (!isDeficit && savings > 0) {
-    links.push({ source: 'expenses', target: 'savings', value: savings });
-  }
-
-  addCategoryLinks(categories, catTotals, links);
 
   return { nodes, links };
-}
 
-function addCategoryLinks(
-  categories: Array<{ id: number; parent_id: number | null }>,
-  catTotals: Map<number, number>,
-  links: SankeyLink[]
-) {
-  for (const cat of categories) {
-    const children = categories.filter((c) => c.parent_id === cat.id);
-    for (const child of children) {
-      const val = catTotals.get(child.id) ?? 0;
-      if (val > 0) links.push({ source: `cat-${cat.id}`, target: `cat-${child.id}`, value: val });
+  /** Pre-order DFS of one category: emit the node, then its mixed children (subcats + direct expenses) value-desc. */
+  function visitCategory(catId: number, groupColor: string, depth: number) {
+    const cat = categories.find((c) => c.id === catId)!;
+    nodes.push({ id: `cat-${catId}`, name: cat.name, type: 'category', value: catTotals.get(catId) ?? 0, depth, color: groupColor, rank: rank++ });
+
+    type Child =
+      | { kind: 'cat'; id: number; name: string; value: number }
+      | { kind: 'exp'; id: number; name: string; value: number };
+
+    const children: Child[] = [];
+    for (const sub of childCats.get(catId) ?? []) {
+      const v = catTotals.get(sub.id) ?? 0;
+      if (v > 0) children.push({ kind: 'cat', id: sub.id, name: sub.name, value: v });
+    }
+    for (const e of expsByCat.get(catId) ?? []) {
+      children.push({ kind: 'exp', id: e.id, name: e.name, value: e.amount });
+    }
+    children.sort(byValueDesc);
+
+    for (const ch of children) {
+      if (ch.kind === 'cat') {
+        links.push({ source: `cat-${catId}`, target: `cat-${ch.id}`, value: ch.value, color: groupColor });
+        visitCategory(ch.id, groupColor, depth + 1);
+      } else {
+        const id = `exp-${ch.id}`;
+        nodes.push({ id, name: ch.name, type: 'expense', value: ch.value, depth: depth + 1, color: groupColor, rank: rank++ });
+        links.push({ source: `cat-${catId}`, target: id, value: ch.value, color: groupColor });
+      }
     }
   }
 }
