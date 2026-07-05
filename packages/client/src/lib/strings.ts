@@ -33,7 +33,7 @@ export const t = {
   newSnapshot: "+ Uusi kuukausikatsaus",
   newSnapshotDialogTitle: "Uusi kuukausikatsaus",
   year: "Vuosi",
-  monthExistsSuffix: " (on jo)",
+  monthExistsSuffix: " (on jo olemassa)",
   create: "Luo",
   creating: "Luodaan…",
   snapshotExists: (monthYear: string) =>
