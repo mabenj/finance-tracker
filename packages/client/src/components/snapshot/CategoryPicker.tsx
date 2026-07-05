@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
 import { t } from '../../lib/strings';
+import { IconButton } from '../ui/IconButton';
+import { IconX } from '../ui/icons';
 
 interface Category {
   id: number;
@@ -86,21 +88,19 @@ export function CategoryPicker({ snapshotId, categories, value, onChange, onCate
     create.mutate({ snapshotId, name: newName.trim(), parentId });
   }
 
-  const sel = 'border border-gray-300 rounded px-2 py-1 text-sm';
-
   // Always show level 0; show level N if path[N-1] is selected
   const levelCount = path.length + 1;
 
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1.5">
       {Array.from({ length: levelCount }, (_, level) => {
         const opts = getCatsAt(level);
         // Skip deeper levels that have no options and aren't in "new" mode
         if (level > 0 && opts.length === 0 && newLevel !== level) return null;
 
         return (
-          <span key={level} className="flex items-center gap-1">
-            {level > 0 && <span className="text-gray-400 text-xs">›</span>}
+          <span key={level} className="flex items-center gap-1.5">
+            {level > 0 && <span className="text-xs text-ink-muted">›</span>}
 
             {newLevel === level ? (
               <span className="flex items-center gap-1">
@@ -113,25 +113,27 @@ export function CategoryPicker({ snapshotId, categories, value, onChange, onCate
                     if (e.key === 'Escape') { setNewLevel(null); setNewName(''); }
                   }}
                   placeholder={t.newCategoryName}
-                  className="border border-blue-400 rounded px-2 py-1 text-sm w-40"
+                  className="field w-40 border-accent"
                 />
                 <button
                   onClick={submitNew}
                   disabled={create.isLoading}
-                  className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
+                  className="rounded-mark bg-accent px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
                 >
                   {t.add}
                 </button>
-                <button
+                <IconButton
                   onClick={() => { setNewLevel(null); setNewName(''); }}
-                  className="text-xs text-gray-500 hover:text-gray-700 px-1"
+                  tone="muted"
+                  title={t.cancel}
+                  aria-label={t.cancel}
                 >
-                  ✕
-                </button>
+                  <IconX className="w-3.5 h-3.5" />
+                </IconButton>
               </span>
             ) : (
               <select
-                className={sel}
+                className="field w-auto"
                 value={path[level] ?? ''}
                 onChange={(e) => handleChange(level, e.target.value)}
               >

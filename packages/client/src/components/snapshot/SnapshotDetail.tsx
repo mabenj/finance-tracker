@@ -5,6 +5,7 @@ import { AccountsSection } from './AccountsSection';
 import { IncomeSection } from './IncomeSection';
 import { ExpenseTree } from './ExpenseTree';
 import { t } from '../../lib/strings';
+import { IconChevron } from '../ui/icons';
 
 interface Account {
   id: number;
@@ -52,6 +53,9 @@ interface Props {
   onUpdate: () => void;
 }
 
+// Full-bleed width for the Sankey so wide flows have room to breathe.
+const FULL_BLEED = 'relative left-1/2 -translate-x-1/2 w-[min(96rem,calc(100vw-2rem))]';
+
 export function SnapshotDetail({ snapshot, editMode, onUpdate }: Props) {
   const [sankeyOpen, setSankeyOpen] = useState(false);
   // Spec §6.1 / §6.2 E: Sankey must be collapsed when entering edit mode.
@@ -88,15 +92,16 @@ export function SnapshotDetail({ snapshot, editMode, onUpdate }: Props) {
         onUpdate={onUpdate}
       />
 
-      {/* Sankey Diagram */}
+      {/* Sankey Diagram — collapsible while editing, always shown when viewing */}
       {editMode ? (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden relative left-1/2 -translate-x-1/2 w-[min(96rem,calc(100vw-2rem))]">
+        <div className={`card overflow-hidden ${FULL_BLEED}`}>
           <button
-            className="w-full flex items-center justify-between px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            className="flex w-full items-center justify-between px-6 py-3 text-sm font-medium text-ink transition-colors hover:bg-paper"
             onClick={() => setSankeyOpen((o) => !o)}
+            aria-expanded={sankeyOpen}
           >
-            <span>{t.sankeyHeadingCollapsible}</span>
-            <span className="text-gray-400">{sankeyOpen ? '▲' : '▼'}</span>
+            <span className="font-display">{t.sankeyHeadingCollapsible}</span>
+            <IconChevron expanded={sankeyOpen} className="w-4 h-4 text-ink-muted" />
           </button>
           {sankeyOpen && (
             <div className="px-6 pb-6">
@@ -109,10 +114,8 @@ export function SnapshotDetail({ snapshot, editMode, onUpdate }: Props) {
           )}
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-lg p-6 relative left-1/2 -translate-x-1/2 w-[min(96rem,calc(100vw-2rem))]">
-          <h2 className="text-base font-semibold text-gray-700 mb-4">
-            {t.sankeyHeading}
-          </h2>
+        <div className={`card p-6 ${FULL_BLEED}`}>
+          <h2 className="mb-4 font-display text-lg font-semibold text-ink">{t.sankeyHeading}</h2>
           <SankeyDiagram
             incomes={snapshot.incomes}
             expenses={snapshot.expenses}

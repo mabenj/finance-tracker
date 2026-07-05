@@ -2,10 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
-import { formatEurCents, formatDeltaCents } from '../../lib/currency';
 import { computeNetWorthDelta } from '../../lib/net-worth';
 import { formatMonthYear } from '../../lib/date';
 import { t } from '../../lib/strings';
+import { Button } from '../ui/Button';
+import { Modal } from '../ui/Modal';
+import { Figure } from '../ui/Figure';
+import { Delta } from '../ui/Delta';
+import { IconTrash, IconPlus } from '../ui/icons';
 
 interface Snapshot {
   id: number;
@@ -21,6 +25,10 @@ interface Props {
   isLoading: boolean;
   onCreateClick: () => void;
 }
+
+// Shared column widths keep every figure in a straight ledger column across rows.
+const COL_NET = 'w-28 text-right';
+const COL_CHANGE = 'w-36 text-right';
 
 export function SnapshotList({ snapshots, isLoading, onCreateClick }: Props) {
   const navigate = useNavigate();
@@ -39,100 +47,118 @@ export function SnapshotList({ snapshots, isLoading, onCreateClick }: Props) {
   const pendingSnap = snapshots.find((s) => s.id === pendingDeleteId) ?? null;
 
   if (isLoading) {
-    return <div className="text-center py-12 text-gray-400">{t.loading}</div>;
+    return (
+      <div className="card overflow-hidden" aria-busy="true" aria-label={t.loading}>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between px-4 py-3.5 border-b border-rule last:border-0"
+          >
+            <div className="h-4 w-32 rounded-mark bg-rule motion-safe:animate-pulse" />
+            <div className="h-4 w-24 rounded-mark bg-rule motion-safe:animate-pulse" />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   if (snapshots.length === 0) {
     return (
-      <div className="text-center py-16 text-gray-500">
-        <p className="text-lg font-medium mb-3">{t.noSnapshots}</p>
-        <button
-          onClick={onCreateClick}
-          className="bg-blue-600 text-white px-5 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+      <div className="card flex flex-col items-center gap-4 px-6 py-14 text-center">
+        <div
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-wash text-accent"
+          aria-hidden="true"
         >
+          <IconPlus className="w-6 h-6" />
+        </div>
+        <div>
+          <p className="font-display text-lg font-semibold text-ink">{t.noSnapshots}</p>
+          <p className="mt-1 max-w-xs text-sm text-ink-muted">{t.noSnapshotsHint}</p>
+        </div>
+        <Button onClick={onCreateClick}>
+          <IconPlus />
           {t.createFirstSnapshot}
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
     <>
-      <div className="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+      {/* Column header — the statement's ledger labels */}
+      <div className="mb-1.5 hidden items-center px-4 text-xs font-medium uppercase tracking-wide text-ink-muted sm:flex">
+        <span className="flex-1">{t.month}</span>
+        <span className={COL_NET}>{t.netWorth}</span>
+        <span className={COL_CHANGE}>{t.change}</span>
+        <span className="w-10" />
+      </div>
+
+      <ul className="card divide-y divide-rule overflow-hidden">
         {snapshots.map((snap) => {
-          const deltaInfo = snap.previousNetWorth !== null
-            ? computeNetWorthDelta(snap.netWorth, snap.previousNetWorth)
-            : null;
+          const deltaInfo =
+            snap.previousNetWorth !== null
+              ? computeNetWorthDelta(snap.netWorth, snap.previousNetWorth)
+              : null;
 
           return (
-            <div key={snap.id} className="flex items-center justify-between px-4 py-3 bg-white hover:bg-gray-50">
+            <li key={snap.id} className="group flex items-stretch">
               <button
                 onClick={() => navigate(`/snapshots/${snap.id}`)}
-                className="font-medium hover:text-blue-600 text-left min-w-[130px]"
+                className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-1 rounded-l-card px-4 py-3.5 text-left transition-colors hover:bg-paper"
               >
-                {formatMonthYear(snap.year, snap.month)}
-              </button>
-
-              <div className="flex items-center gap-4 flex-1 justify-end mr-4">
-                <span className="text-sm tabular-nums font-medium text-gray-800">
-                  {formatEurCents(snap.netWorth)}
+                <span className="min-w-[7rem] flex-1 truncate font-medium text-ink transition-colors group-hover:text-accent">
+                  {formatMonthYear(snap.year, snap.month)}
                 </span>
-                {deltaInfo !== null ? (
-                  <span
-                    className={`text-sm tabular-nums ${
-                      deltaInfo.absolute >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}
-                  >
-                    {formatDeltaCents(deltaInfo.absolute)}
-                    {deltaInfo.percentage !== null && (
-                      <span className="ml-1 text-xs">
-                        ({deltaInfo.absolute >= 0 ? '+' : ''}{deltaInfo.percentage.toFixed(1)}%)
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  <span className="text-sm text-gray-400 italic">—</span>
-                )}
-              </div>
+                <span className={`${COL_NET} text-sm`}>
+                  <Figure cents={snap.netWorth} />
+                </span>
+                <span className={`${COL_CHANGE} flex justify-end`}>
+                  {deltaInfo !== null ? (
+                    <Delta absolute={deltaInfo.absolute} percentage={deltaInfo.percentage} size="sm" />
+                  ) : (
+                    <span className="figure text-sm text-ink-muted">—</span>
+                  )}
+                </span>
+              </button>
 
               <button
                 onClick={() => setPendingDeleteId(snap.id)}
-                className="text-sm text-red-600 hover:text-red-800"
+                title={t.delete}
+                aria-label={`${t.delete}: ${formatMonthYear(snap.year, snap.month)}`}
+                className="flex w-11 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-loss-wash hover:text-loss sm:w-10"
               >
-                {t.delete}
+                <IconTrash className="w-4 h-4" />
               </button>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
-      {/* Delete confirmation dialog */}
-      {pendingSnap && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-80">
-            <h2 className="text-base font-semibold mb-2">{t.deleteSnapshotTitle}</h2>
-            <p className="text-sm text-gray-600 mb-5">
-              {t.deleteSnapshotBody(formatMonthYear(pendingSnap.year, pendingSnap.month))}
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setPendingDeleteId(null)}
-                disabled={deleteMutation.isLoading}
-                className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50"
-              >
-                {t.cancel}
-              </button>
-              <button
-                onClick={() => deleteMutation.mutate({ id: pendingSnap.id })}
-                disabled={deleteMutation.isLoading}
-                className="bg-red-600 text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-              >
-                {deleteMutation.isLoading ? t.deleting : t.delete}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={pendingSnap !== null}
+        onClose={() => setPendingDeleteId(null)}
+        title={t.deleteSnapshotTitle}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => setPendingDeleteId(null)}
+              disabled={deleteMutation.isLoading}
+            >
+              {t.cancel}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => pendingSnap && deleteMutation.mutate({ id: pendingSnap.id })}
+              disabled={deleteMutation.isLoading}
+            >
+              {deleteMutation.isLoading ? t.deleting : t.delete}
+            </Button>
+          </>
+        }
+      >
+        {pendingSnap && t.deleteSnapshotBody(formatMonthYear(pendingSnap.year, pendingSnap.month))}
+      </Modal>
     </>
   );
 }

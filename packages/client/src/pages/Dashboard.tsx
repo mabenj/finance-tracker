@@ -4,6 +4,9 @@ import { trpc } from '../lib/trpc';
 import { SnapshotList } from '../components/dashboard/SnapshotList';
 import { MONTH_NAMES, formatMonthYear } from '../lib/date';
 import { t } from '../lib/strings';
+import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
+import { IconPlus } from '../components/ui/icons';
 
 function defaultCreateMonth(snapshots: { year: number; month: number }[]) {
   if (snapshots.length === 0) {
@@ -57,75 +60,66 @@ export function Dashboard() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-10 px-4">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">{t.dashboardTitle}</h1>
-        <button
-          onClick={openDialog}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          {t.newSnapshot}
-        </button>
+    <div className="mx-auto max-w-2xl px-4 py-10 sm:py-12">
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+          {t.dashboardTitle}
+        </h1>
+        <Button onClick={openDialog} aria-label={t.newSnapshot} className="shrink-0">
+          <IconPlus />
+          <span className="hidden sm:inline">{t.newSnapshot}</span>
+        </Button>
       </div>
 
       <SnapshotList snapshots={snapshots} isLoading={isLoading} onCreateClick={openDialog} />
 
-      {/* Create dialog */}
-      {dialogOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-80">
-            <h2 className="text-lg font-semibold mb-4">{t.newSnapshotDialogTitle}</h2>
+      <Modal
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title={t.newSnapshotDialogTitle}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDialogOpen(false)}>
+              {t.cancel}
+            </Button>
+            <Button onClick={handleCreate} disabled={createMutation.isLoading}>
+              {createMutation.isLoading ? t.creating : t.create}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex gap-2">
+          <select
+            aria-label={t.month}
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+            className="field flex-1"
+          >
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+              <option key={m} value={m} disabled={takenSet.has(`${selectedYear}-${m}`)}>
+                {MONTH_NAMES[m]}
+                {takenSet.has(`${selectedYear}-${m}`) ? t.monthExistsSuffix : ''}
+              </option>
+            ))}
+          </select>
 
-            <div className="flex gap-2 mb-4">
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm"
-              >
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <option
-                    key={m}
-                    value={m}
-                    disabled={takenSet.has(`${selectedYear}-${m}`)}
-                  >
-                    {MONTH_NAMES[m]}
-                    {takenSet.has(`${selectedYear}-${m}`) ? t.monthExistsSuffix : ''}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="number"
-                min="1"
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className="w-24 border border-gray-300 rounded px-2 py-1.5 text-sm"
-                placeholder={t.year}
-              />
-            </div>
-
-            {createError && (
-              <p className="text-red-600 text-sm mb-3">{createError}</p>
-            )}
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setDialogOpen(false)}
-                className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
-              >
-                {t.cancel}
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={createMutation.isLoading}
-                className="bg-blue-600 text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {createMutation.isLoading ? t.creating : t.create}
-              </button>
-            </div>
-          </div>
+          <input
+            type="number"
+            min="1"
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            className="field w-24"
+            aria-label={t.year}
+            placeholder={t.year}
+          />
         </div>
-      )}
+
+        {createError && (
+          <p role="alert" className="mt-3 text-sm text-loss">
+            {createError}
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

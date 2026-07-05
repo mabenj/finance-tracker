@@ -31,17 +31,21 @@ export const t = {
 
   // ── Dashboard ─────────────────────────────────────────────────────
   dashboardTitle: "Kuukausikatsaukset",
-  newSnapshot: "+ Uusi kuukausikatsaus",
+  newSnapshot: "Uusi kuukausikatsaus",
   newSnapshotDialogTitle: "Uusi kuukausikatsaus",
   year: "Vuosi",
   monthExistsSuffix: " (on jo olemassa)",
-  create: "Luo",
+  create: "Luo katsaus",
   creating: "Luodaan…",
   snapshotExists: (monthYear: string) =>
     `Kuukausikatsaus ${monthYear} on jo olemassa.`,
 
   // ── Snapshot list ─────────────────────────────────────────────────
+  month: "Kuukausi",
+  change: "Muutos",
   noSnapshots: "Ei kuukausikatsauksia vielä",
+  noSnapshotsHint:
+    "Aloita seuraamaan varallisuuttasi luomalla ensimmäinen kuukausikatsaus.",
   createFirstSnapshot: "Luo ensimmäinen kuukausikatsaus",
   deleteSnapshotTitle: "Poistetaanko kuukausikatsaus?",
   deleteSnapshotBody: (monthYear: string) =>
@@ -49,14 +53,14 @@ export const t = {
 
   // ── Snapshot page ─────────────────────────────────────────────────
   snapshotNotFound: "Kuukausikatsausta ei löytynyt.",
-  backToDashboard: "← Takaisin etusivulle",
-  dashboardLink: "← Etusivu",
+  backToDashboard: "Takaisin etusivulle",
+  dashboardLink: "Etusivu",
   viewMode: "Katselutila",
   editMode: "Muokkaustila",
 
   // ── Accounts ──────────────────────────────────────────────────────
   accounts: "Tilit",
-  addAccount: "+ Lisää tili",
+  addAccount: "Lisää tili",
   accountName: "Tilin nimi",
   type: "Tyyppi",
   balance: "Saldo",
@@ -70,7 +74,7 @@ export const t = {
 
   // ── Income ────────────────────────────────────────────────────────
   income: "Tulot",
-  addIncome: "+ Lisää tulo",
+  addIncome: "Lisää tulo",
   incomeName: "Tulon nimi",
   noIncomeEdit: 'Ei tuloja vielä — lisää klikkaamalla "+ Lisää tulo" yltä.',
   noIncomeView: "Ei tuloja vielä — siirry muokkaustilaan lisätäksesi.",
@@ -100,7 +104,7 @@ export const t = {
   adjustPlaceholder: "+/−",
   adjustApply: "Käytä",
   subcategoryName: "Alakategorian nimi",
-  newCategory: "+ Uusi kategoria",
+  newCategory: "Uusi kategoria",
   newCategoryName: "Uuden kategorian nimi",
   noExpensesView: "Ei menoja vielä — siirry muokkaustilaan lisätäksesi.",
   noCategories: "Ei kategorioita vielä — lisää yksi alta.",

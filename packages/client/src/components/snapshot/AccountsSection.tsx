@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
-import { formatEurCents, centsToEuroStr, eurosToCents, sanitizeEuroInput } from '../../lib/currency';
+import { centsToEuroStr, eurosToCents, sanitizeEuroInput } from '../../lib/currency';
 import { ReorderButtons } from './ReorderButtons';
 import { t } from '../../lib/strings';
+import { Button } from '../ui/Button';
+import { Modal } from '../ui/Modal';
+import { Figure } from '../ui/Figure';
+import { IconButton } from '../ui/IconButton';
+import { IconPlus, IconPencil, IconTrash, IconCheck, IconX } from '../ui/icons';
 
 interface Account {
   id: number;
@@ -36,39 +41,6 @@ const BLANK_EDIT: RowEdit = {
   balance: '0',
   totalPaid: '',
 };
-
-// Inline SVG icons — avoids an icon library dependency
-function IconPencil() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-    </svg>
-  );
-}
-
-function IconCheck() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-    </svg>
-  );
-}
-
-function IconX() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-    </svg>
-  );
-}
-
-function IconTrash() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-    </svg>
-  );
-}
 
 export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Props) {
   const { showToast } = useToast();
@@ -156,154 +128,145 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
     };
   }
 
-  const inputCls = 'border border-gray-300 rounded px-2 py-1 text-sm w-full';
+  const th = 'py-2 px-3 font-medium text-xs uppercase tracking-wide text-ink-muted';
+  const td = 'py-2 px-3';
 
-  // B2/B3: edit row uses checkmark (confirm) + X icons instead of text "Save"/"Cancel"
   function renderEditRow(id?: number) {
     const save = () => saveRow(id);
     return (
-      <tr key={id ?? 'new'} className="border-b border-blue-100 bg-blue-50">
-        <td className="py-1 pr-2 pl-3">
-          <input className={inputCls} value={row.name} onChange={field('name')} onKeyDown={onKey(save)} autoFocus placeholder={t.accountName} />
+      <tr key={id ?? 'new'} className="border-b border-rule bg-accent-wash">
+        <td className="py-1.5 px-3">
+          <input className="field" value={row.name} onChange={field('name')} onKeyDown={onKey(save)} autoFocus placeholder={t.accountName} />
         </td>
-        <td className="py-1 pr-2">
-          <select className="border border-gray-300 rounded px-2 py-1 text-sm" value={row.type} onChange={field('type')}>
+        <td className="py-1.5 px-3">
+          <select className="field" value={row.type} onChange={field('type')} aria-label={t.type}>
             <option value="asset">{t.accountType.asset}</option>
             <option value="liability">{t.accountType.liability}</option>
           </select>
         </td>
-        <td className="py-1 pr-2">
-          <input className={inputCls} value={row.category} onChange={field('category')} onKeyDown={onKey(save)} placeholder={t.category} />
+        <td className="py-1.5 px-3">
+          <input className="field" value={row.category} onChange={field('category')} onKeyDown={onKey(save)} placeholder={t.category} />
         </td>
-        <td className="py-1 pr-2">
-          <input type="number" step="1" min="0" className={`${inputCls} text-right`} value={row.balance} onChange={currencyField('balance')} onKeyDown={onKey(save)} />
+        <td className="py-1.5 px-3">
+          <input type="number" step="1" min="0" className="field text-right" value={row.balance} onChange={currencyField('balance')} onKeyDown={onKey(save)} aria-label={t.balance} />
         </td>
-        <td className="py-1 pr-2">
-          <input type="number" step="1" min="0" className={`${inputCls} text-right`} value={row.totalPaid} onChange={currencyField('totalPaid')} onKeyDown={onKey(save)} placeholder="—" />
+        <td className="py-1.5 px-3">
+          <input type="number" step="1" min="0" className="field text-right" value={row.totalPaid} onChange={currencyField('totalPaid')} onKeyDown={onKey(save)} placeholder="—" aria-label={t.totalPaid} />
         </td>
-        <td className="py-1 pr-3 whitespace-nowrap">
-          <button
-            onClick={save}
-            disabled={upsert.isLoading}
-            title={t.confirm}
-            className="inline-flex items-center text-green-700 hover:text-green-900 disabled:opacity-50 p-1 mr-1"
-          >
-            <IconCheck />
-          </button>
-          <button
-            onClick={() => setEditingId(null)}
-            title={t.cancel}
-            className="inline-flex items-center text-gray-400 hover:text-gray-600 p-1"
-          >
-            <IconX />
-          </button>
+        <td className="py-1.5 px-3 whitespace-nowrap text-right">
+          <IconButton onClick={save} disabled={upsert.isLoading} tone="accent" title={t.confirm} aria-label={t.confirm}>
+            <IconCheck className="w-4 h-4" />
+          </IconButton>
+          <IconButton onClick={() => setEditingId(null)} tone="muted" title={t.cancel} aria-label={t.cancel}>
+            <IconX className="w-4 h-4" />
+          </IconButton>
         </td>
       </tr>
     );
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold">{t.accounts}</h2>
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-display text-lg font-semibold text-ink">{t.accounts}</h2>
         {editMode && editingId !== 'new' && (
-          <button
-            onClick={() => { setRow(BLANK_EDIT); setEditingId('new'); }}
-            className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700"
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setRow(BLANK_EDIT);
+              setEditingId('new');
+            }}
           >
+            <IconPlus />
             {t.addAccount}
-          </button>
+          </Button>
         )}
       </div>
 
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-left text-gray-500">
-              <th className="py-2 pl-3 pr-4 font-medium">{t.name}</th>
-              <th className="py-2 pr-4 font-medium">{t.type}</th>
-              <th className="py-2 pr-4 font-medium">{t.category}</th>
-              <th className="py-2 pr-4 font-medium text-right">{t.balance}</th>
-              <th className="py-2 pr-4 font-medium text-right">{t.totalPaid}</th>
-              {editMode && <th className="py-2 pr-3 font-medium w-16" />}
-            </tr>
-          </thead>
-          <tbody>
-            {accounts.map((acc, index) =>
-              editingId === acc.id ? (
-                renderEditRow(acc.id)
-              ) : (
-                <tr key={acc.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                  <td className="py-2 pl-3 pr-4">{acc.name}</td>
-                  <td className="py-2 pr-4">{t.accountType[acc.type] ?? acc.type}</td>
-                  <td className="py-2 pr-4 text-gray-600">{acc.category}</td>
-                  <td className="py-2 pr-4 text-right tabular-nums">{formatEurCents(acc.balance)}</td>
-                  <td className="py-2 pr-4 text-right tabular-nums text-gray-500">
-                    {acc.total_paid !== null ? formatEurCents(acc.total_paid) : '—'}
-                  </td>
-                  {editMode && (
-                    <td className="py-2 pr-3 whitespace-nowrap text-right">
-                      <ReorderButtons
-                        canMoveUp={index > 0}
-                        canMoveDown={index < accounts.length - 1}
-                        pending={reorder.isLoading}
-                        onMoveUp={() => move(index, 'up')}
-                        onMoveDown={() => move(index, 'down')}
-                      />
-                      {/* B2: pencil icon per spec §5.2 */}
-                      <button
-                        onClick={() => startEdit(acc)}
-                        title={t.edit}
-                        className="inline-flex items-center text-blue-600 hover:text-blue-800 p-1 mr-1"
-                      >
-                        <IconPencil />
-                      </button>
-                      <button
-                        onClick={() => setPendingDeleteId(acc.id)}
-                        title={t.delete}
-                        className="inline-flex items-center text-red-400 hover:text-red-600 p-1"
-                      >
-                        <IconTrash />
-                      </button>
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-rule bg-paper text-left">
+                <th className={th}>{t.name}</th>
+                <th className={th}>{t.type}</th>
+                <th className={th}>{t.category}</th>
+                <th className={`${th} text-right`}>{t.balance}</th>
+                <th className={`${th} text-right`}>{t.totalPaid}</th>
+                {editMode && <th className={`${th} w-24`} />}
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((acc, index) =>
+                editingId === acc.id ? (
+                  renderEditRow(acc.id)
+                ) : (
+                  <tr key={acc.id} className="border-b border-rule last:border-0 hover:bg-paper">
+                    <td className={`${td} text-ink`}>{acc.name}</td>
+                    <td className={`${td} text-ink-muted`}>{t.accountType[acc.type] ?? acc.type}</td>
+                    <td className={`${td} text-ink-muted`}>{acc.category}</td>
+                    <td className={`${td} text-right`}>
+                      <Figure cents={acc.balance} />
                     </td>
-                  )}
-                </tr>
-              )
-            )}
-            {editingId === 'new' && renderEditRow()}
-          </tbody>
-        </table>
+                    <td className={`${td} text-right`}>
+                      {acc.total_paid !== null ? (
+                        <Figure cents={acc.total_paid} muted />
+                      ) : (
+                        <span className="text-ink-muted">—</span>
+                      )}
+                    </td>
+                    {editMode && (
+                      <td className={`${td} whitespace-nowrap text-right`}>
+                        <ReorderButtons
+                          canMoveUp={index > 0}
+                          canMoveDown={index < accounts.length - 1}
+                          pending={reorder.isLoading}
+                          onMoveUp={() => move(index, 'up')}
+                          onMoveDown={() => move(index, 'down')}
+                        />
+                        <IconButton onClick={() => startEdit(acc)} tone="accent" title={t.edit} aria-label={t.edit}>
+                          <IconPencil className="w-3.5 h-3.5" />
+                        </IconButton>
+                        <IconButton onClick={() => setPendingDeleteId(acc.id)} tone="loss" title={t.delete} aria-label={t.delete}>
+                          <IconTrash className="w-3.5 h-3.5" />
+                        </IconButton>
+                      </td>
+                    )}
+                  </tr>
+                )
+              )}
+              {editingId === 'new' && renderEditRow()}
+            </tbody>
+          </table>
+        </div>
 
         {accounts.length === 0 && editingId !== 'new' && (
-          <div className="py-8 text-center text-gray-400 text-sm">
-            {t.noAccounts}
-          </div>
+          <div className="py-8 text-center text-sm text-ink-muted">{t.noAccounts}</div>
         )}
       </div>
 
-      {/* Delete confirmation */}
-      {pendingDeleteId !== null && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-80">
-            <h2 className="text-base font-semibold mb-2">{t.deleteAccountTitle}</h2>
-            <p className="text-sm text-gray-600 mb-5">
-              {t.deleteAccountBody}
-            </p>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setPendingDeleteId(null)} className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900">
-                {t.cancel}
-              </button>
-              <button
-                onClick={() => remove.mutate({ id: pendingDeleteId, snapshotId })}
-                disabled={remove.isLoading}
-                className="bg-red-600 text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-              >
-                {remove.isLoading ? t.deleting : t.delete}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <Modal
+        open={pendingDeleteId !== null}
+        onClose={() => setPendingDeleteId(null)}
+        title={t.deleteAccountTitle}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPendingDeleteId(null)} disabled={remove.isLoading}>
+              {t.cancel}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => pendingDeleteId !== null && remove.mutate({ id: pendingDeleteId, snapshotId })}
+              disabled={remove.isLoading}
+            >
+              {remove.isLoading ? t.deleting : t.delete}
+            </Button>
+          </>
+        }
+      >
+        {t.deleteAccountBody}
+      </Modal>
+    </section>
   );
 }

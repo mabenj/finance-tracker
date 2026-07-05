@@ -11,25 +11,15 @@ import {
   applyEuroAdjustment,
 } from '../../lib/currency';
 import { sumTree } from '../../lib/sum-tree';
+import { cn } from '../../lib/cn';
 import { CategoryPicker } from './CategoryPicker';
 import { ReorderButtons } from './ReorderButtons';
 import { t } from '../../lib/strings';
-
-// Inline SVG chevron — matches the project's no-icon-library convention
-// (see ReorderButtons.tsx). Points right when collapsed, rotates down when expanded.
-function IconChevron({ expanded }: { expanded: boolean }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`}
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path fillRule="evenodd" d="M7.3 5.3a1 1 0 011.4 0l4 4a1 1 0 010 1.4l-4 4a1 1 0 01-1.4-1.4L10.6 10 7.3 6.7a1 1 0 010-1.4z" clipRule="evenodd" />
-    </svg>
-  );
-}
+import { Button } from '../ui/Button';
+import { Modal } from '../ui/Modal';
+import { Figure } from '../ui/Figure';
+import { IconButton } from '../ui/IconButton';
+import { IconChevron, IconPlus } from '../ui/icons';
 
 interface Category {
   id: number;
@@ -61,10 +51,13 @@ interface CategoryNode {
   expenses: Expense[];
 }
 
+// Small text-action buttons shared by the tree's dense rows.
+const actAccent = 'text-xs text-accent hover:text-accent-hover px-1 disabled:opacity-50';
+const actMuted = 'text-xs text-ink-muted hover:text-ink px-1 disabled:opacity-50';
+const actLoss = 'text-xs text-loss hover:text-loss-hover px-1 disabled:opacity-50';
+
 // Manual order is the single source of truth: categories and expenses are
 // ordered by their stored `position` within each sibling group (id tiebreak).
-// Iterating categories in global (position, id) order guarantees that, for any
-// one parent, its children land in ascending position order.
 function byPosition<T extends { position: number; id: number }>(a: T, b: T): number {
   return a.position - b.position || a.id - b.id;
 }
@@ -83,7 +76,6 @@ function buildTree(categories: Category[], expenses: Expense[]): CategoryNode[] 
       map.get(cat.parent_id)?.children.push(node);
     }
   }
-  // Sort expenses within each node by manual position
   for (const node of map.values()) {
     node.expenses.sort(byPosition);
   }
@@ -197,8 +189,6 @@ function ExpenseRow({
   }
 
   // Persist the pending fold, then run onSaved (used to close after "done").
-  // A no-op delta just runs onSaved. Guarded so a second Enter can't fold a
-  // stale base while a save is still in flight.
   function saveQuickFold(onSaved?: () => void) {
     if (quickAdjustMut.isLoading) return;
     if (!quickActive) { onSaved?.(); return; }
@@ -217,16 +207,16 @@ function ExpenseRow({
 
   if (editing) {
     return (
-      <div className="flex items-stretch bg-blue-50 border-b border-gray-100 pl-2">
+      <div className="flex items-stretch border-b border-rule bg-accent-wash pl-2">
         <Indent depth={depth + 1} />
-        <div className="flex flex-col gap-2 py-2 pr-3 flex-1 min-w-0">
+        <div className="flex min-w-0 flex-1 flex-col gap-2 py-2 pr-3">
           <div className="flex items-center gap-2">
             <input
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
-              className="border border-gray-300 rounded px-2 py-1 text-sm flex-1"
+              className="field flex-1"
               placeholder={t.expenseName}
             />
             <input
@@ -235,13 +225,14 @@ function ExpenseRow({
               step="1"
               value={amount}
               onChange={(e) => setAmount(sanitizeEuroInput(e.target.value))}
-              className="border border-gray-300 rounded px-2 py-1 text-sm w-28 text-right"
+              className="field w-28 text-right"
               placeholder="0"
+              aria-label={t.amount}
             />
           </div>
           {/* Signed adjustment — fold a delta into the amount above */}
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-gray-500">{t.adjust}</span>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-ink-muted">{t.adjust}</span>
             <input
               type="text"
               inputMode="numeric"
@@ -251,25 +242,25 @@ function ExpenseRow({
                 if (e.key === 'Enter') { e.preventDefault(); foldAdjust(); }
                 if (e.key === 'Escape') setEditing(false);
               }}
-              className="border border-gray-300 rounded px-2 py-1 text-sm w-24 text-right"
+              className="field w-24 text-right"
               placeholder={t.adjustPlaceholder}
             />
             <button
               type="button"
               onClick={foldAdjust}
               disabled={!formActive}
-              className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-40 disabled:cursor-default px-1"
+              className={actAccent}
             >
               {t.adjustApply}
             </button>
             {formActive && (
-              <span className="text-xs tabular-nums text-gray-500">
+              <span className="figure text-xs text-ink-muted">
                 {formatEurCents(formBase)} → {formatEurCents(formNext)}
               </span>
             )}
           </div>
           <div className="flex items-center gap-3 text-sm">
-            <span className="text-gray-500">{t.categoryLabel}</span>
+            <span className="text-ink-muted">{t.categoryLabel}</span>
             <CategoryPicker
               snapshotId={snapshotId}
               categories={categories}
@@ -279,24 +270,24 @@ function ExpenseRow({
             />
           </div>
           <div className="flex items-center gap-4">
-            <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-1.5 text-sm text-ink-muted">
               <input
                 type="checkbox"
                 checked={recurring}
                 onChange={(e) => setRecurring(e.target.checked)}
-                className="rounded"
+                className="h-4 w-4 rounded accent-[var(--accent)]"
               />
               {t.recurring}
             </label>
-            <div className="flex gap-2 ml-auto">
+            <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={handleSave}
                 disabled={upsertMut.isLoading}
-                className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50"
+                className="rounded-mark bg-accent px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
               >
                 {upsertMut.isLoading ? t.saving : t.save}
               </button>
-              <button onClick={() => setEditing(false)} className="text-xs text-gray-500 hover:text-gray-700 px-1">
+              <button onClick={() => setEditing(false)} className={actMuted}>
                 {t.cancel}
               </button>
             </div>
@@ -307,17 +298,17 @@ function ExpenseRow({
   }
 
   return (
-    <div className="flex items-stretch hover:bg-gray-50 border-b border-gray-100 last:border-0 pl-2">
+    <div className="flex items-stretch border-b border-rule pl-2 last:border-0 hover:bg-paper">
       <Indent depth={depth + 1} />
-      <div className="flex items-center justify-between flex-1 min-w-0 py-1.5 pr-3">
-        <span className="flex items-center gap-2 min-w-0">
-          <span className="text-sm text-gray-700 truncate">{expense.name}</span>
+      <div className="flex min-w-0 flex-1 items-center justify-between py-1.5 pr-3">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm text-ink">{expense.name}</span>
           {expense.recurring === 1 && (
-            <span className="text-xs text-gray-400 shrink-0" title={t.recurring}>↻</span>
+            <span className="shrink-0 text-xs text-ink-muted" title={t.recurring}>↻</span>
           )}
         </span>
         {editMode && adjusting ? (
-          <span className="flex items-center gap-2 shrink-0 ml-4">
+          <span className="ml-4 flex shrink-0 items-center gap-2">
             <input
               autoFocus
               type="text"
@@ -328,23 +319,24 @@ function ExpenseRow({
                 if (e.key === 'Enter') { e.preventDefault(); saveQuickFold(); }
                 if (e.key === 'Escape') setAdjusting(false);
               }}
-              className="border border-gray-300 rounded px-2 py-1 text-sm w-20 text-right"
+              className="field w-20 text-right"
               placeholder={t.adjustPlaceholder}
+              aria-label={t.adjust}
             />
             {quickActive ? (
-              <span className="text-sm tabular-nums text-gray-500">
+              <span className="figure text-sm text-ink-muted">
                 {formatEurCents(baseCents)} →{' '}
-                <span className="font-medium text-gray-800">{formatEurCents(quickNext)}</span>
+                <span className="font-medium text-ink">{formatEurCents(quickNext)}</span>
               </span>
             ) : (
-              <span className="text-sm tabular-nums text-gray-800">{formatEurCents(baseCents)}</span>
+              <span className="figure text-sm text-ink">{formatEurCents(baseCents)}</span>
             )}
             <button
               type="button"
               onClick={() => saveQuickFold()}
               disabled={!quickActive || quickAdjustMut.isLoading}
               title={t.adjustApply}
-              className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 disabled:opacity-40"
+              className="rounded-mark bg-accent px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
             >
               {t.adjustApply}
             </button>
@@ -352,14 +344,14 @@ function ExpenseRow({
               type="button"
               onClick={() => saveQuickFold(() => setAdjusting(false))}
               disabled={quickAdjustMut.isLoading}
-              className="text-xs text-gray-500 hover:text-gray-700 px-1 disabled:opacity-50"
+              className={actMuted}
             >
               {t.done}
             </button>
           </span>
         ) : (
-          <span className="flex items-center gap-3 shrink-0 ml-4">
-            <span className="text-sm tabular-nums text-gray-800">{formatEurCents(expense.amount)}</span>
+          <span className="ml-4 flex shrink-0 items-center gap-3">
+            <Figure cents={expense.amount} />
             {editMode && (
               <>
                 <ReorderButtons
@@ -373,17 +365,17 @@ function ExpenseRow({
                   onClick={openQuickAdjust}
                   title={t.adjust}
                   aria-label={t.adjust}
-                  className="text-sm text-green-600 hover:text-green-800 font-medium leading-none px-1"
+                  className="px-1 text-sm font-semibold leading-none text-accent hover:text-accent-hover"
                 >
                   ±
                 </button>
-                <button onClick={() => setEditing(true)} className="text-xs text-blue-500 hover:text-blue-700">
+                <button onClick={() => setEditing(true)} className={actAccent}>
                   {t.edit}
                 </button>
                 <button
                   onClick={() => deleteMut.mutate({ id: expense.id, snapshotId })}
                   disabled={deleteMut.isLoading}
-                  className="text-xs text-red-400 hover:text-red-600 disabled:opacity-50"
+                  className={actLoss}
                 >
                   {deleteMut.isLoading ? '…' : t.delete}
                 </button>
@@ -436,16 +428,16 @@ function AddExpenseRow({
   }
 
   return (
-    <div className="flex items-stretch bg-green-50 border-b border-gray-100 pl-2">
+    <div className="flex items-stretch border-b border-rule bg-accent-wash pl-2">
       <Indent depth={depth + 1} />
-      <div className="flex flex-col gap-2 py-2 pr-3 flex-1 min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col gap-2 py-2 pr-3">
         <div className="flex items-center gap-2">
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose(); }}
-            className="border border-gray-300 rounded px-2 py-1 text-sm flex-1"
+            className="field flex-1"
             placeholder={t.expenseName}
           />
           <input
@@ -454,12 +446,13 @@ function AddExpenseRow({
             step="1"
             value={amount}
             onChange={(e) => setAmount(sanitizeEuroInput(e.target.value))}
-            className="border border-gray-300 rounded px-2 py-1 text-sm w-28 text-right"
+            className="field w-28 text-right"
             placeholder="0"
+            aria-label={t.amount}
           />
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-gray-500">{t.categoryLabel}</span>
+          <span className="text-ink-muted">{t.categoryLabel}</span>
           <CategoryPicker
             snapshotId={snapshotId}
             categories={categories}
@@ -469,24 +462,24 @@ function AddExpenseRow({
           />
         </div>
         <div className="flex items-center gap-4">
-          <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+          <label className="flex cursor-pointer items-center gap-1.5 text-sm text-ink-muted">
             <input
               type="checkbox"
               checked={recurring}
               onChange={(e) => setRecurring(e.target.checked)}
-              className="rounded"
+              className="h-4 w-4 rounded accent-[var(--accent)]"
             />
             {t.recurring}
           </label>
-          <div className="flex gap-2 ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             <button
               onClick={handleSave}
               disabled={upsertMut.isLoading}
-              className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50"
+              className="rounded-mark bg-accent px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {upsertMut.isLoading ? t.saving : t.add}
             </button>
-            <button onClick={onClose} className="text-xs text-gray-500 hover:text-gray-700 px-1">{t.cancel}</button>
+            <button onClick={onClose} className={actMuted}>{t.cancel}</button>
           </div>
         </div>
       </div>
@@ -580,25 +573,28 @@ function CategoryNodeRow({
       {/* Category header row */}
       <div
         onClick={() => { if (hasContent && !renaming) onToggleCollapse(node.cat.id); }}
-        className={`flex items-stretch bg-gray-50 border-b border-gray-200 hover:bg-gray-100 pl-2 ${hasContent && !renaming ? 'cursor-pointer' : ''}`}
+        className={cn(
+          'flex items-stretch border-b border-rule bg-paper pl-2',
+          hasContent && !renaming && 'cursor-pointer hover:bg-rule'
+        )}
       >
         <Indent depth={depth} />
-        <div className="flex items-center justify-between flex-1 min-w-0 py-1.5 pr-3">
-          <span className="flex items-center min-w-0">
-            <span className="w-5 shrink-0 flex items-center text-xs">
+        <div className="flex min-w-0 flex-1 items-center justify-between py-1.5 pr-3">
+          <span className="flex min-w-0 items-center">
+            <span className="flex w-5 shrink-0 items-center">
               {hasContent && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onToggleCollapse(node.cat.id); }}
                   aria-label={collapsed ? t.expandCategory : t.collapseCategory}
-                  className="text-gray-400 hover:text-gray-600 flex items-center"
+                  className="flex items-center text-ink-muted hover:text-ink"
                 >
-                  <IconChevron expanded={!collapsed} />
+                  <IconChevron expanded={!collapsed} className="w-3.5 h-3.5" />
                 </button>
               )}
             </span>
 
             {renaming ? (
-              <span className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
+              <span className="flex flex-1 items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 <input
                   autoFocus
                   value={renameName}
@@ -607,29 +603,31 @@ function CategoryNodeRow({
                     if (e.key === 'Enter') updateMut.mutate({ id: node.cat.id, snapshotId, name: renameName.trim() });
                     if (e.key === 'Escape') setRenaming(false);
                   }}
-                  className="border border-gray-300 rounded px-2 py-0.5 text-sm flex-1 max-w-xs"
+                  className="field max-w-xs flex-1"
                 />
                 <button
                   onClick={() => updateMut.mutate({ id: node.cat.id, snapshotId, name: renameName.trim() })}
                   disabled={updateMut.isLoading}
-                  className="text-xs text-green-700 hover:text-green-900 font-medium"
+                  className={actAccent}
                 >
                   {t.save}
                 </button>
-                <button onClick={() => setRenaming(false)} className="text-xs text-gray-400 hover:text-gray-600">{t.cancel}</button>
+                <button onClick={() => setRenaming(false)} className={actMuted}>{t.cancel}</button>
               </span>
             ) : (
-              <span className="flex items-center gap-2 min-w-0">
-                <span className={`text-sm font-medium truncate ${hasContent ? 'text-gray-800' : 'text-gray-400'}`}>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className={cn('truncate text-sm font-medium', hasContent ? 'text-ink' : 'text-ink-muted')}>
                   {node.cat.name}
                 </span>
-                {!hasContent && <span className="text-xs font-normal text-gray-400 shrink-0">{t.emptyCategory}</span>}
+                {!hasContent && <span className="shrink-0 text-xs font-normal text-ink-muted">{t.emptyCategory}</span>}
               </span>
             )}
           </span>
 
-          <span className="flex items-center gap-3 shrink-0 ml-4">
-            <span className={`text-sm tabular-nums font-medium ${hasContent ? 'text-gray-600' : 'text-gray-400'}`}>{formatEurCents(subtotal)}</span>
+          <span className="ml-4 flex shrink-0 items-center gap-3">
+            <span className="figure text-sm font-medium text-ink-muted">
+              {formatEurCents(subtotal)}
+            </span>
             {editMode && !renaming && (
               <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                 <ReorderButtons
@@ -639,30 +637,16 @@ function CategoryNodeRow({
                   onMoveUp={() => onMoveCategory(parentId, siblingIds, index, 'up')}
                   onMoveDown={() => onMoveCategory(parentId, siblingIds, index, 'down')}
                 />
-                <button
-                  onClick={() => setAddingExpense(true)}
-                  title={t.addExpense}
-                  className="text-xs text-green-600 hover:text-green-800 px-1"
-                >
+                <button onClick={() => setAddingExpense(true)} title={t.addExpense} className={actAccent}>
                   {t.addExpenseShort}
                 </button>
-                <button
-                  onClick={() => setAddingSubcat(true)}
-                  title={t.addSubcategory}
-                  className="text-xs text-blue-500 hover:text-blue-700 px-1"
-                >
+                <button onClick={() => setAddingSubcat(true)} title={t.addSubcategory} className={actAccent}>
                   {t.addSubcategoryShort}
                 </button>
-                <button
-                  onClick={() => { setRenameName(node.cat.name); setRenaming(true); }}
-                  className="text-xs text-gray-400 hover:text-gray-600 px-1"
-                >
+                <button onClick={() => { setRenameName(node.cat.name); setRenaming(true); }} className={actMuted}>
                   {t.rename}
                 </button>
-                <button
-                  onClick={() => setPendingDelete(true)}
-                  className="text-xs text-red-400 hover:text-red-600 px-1"
-                >
+                <button onClick={() => setPendingDelete(true)} className={actLoss}>
                   {t.delete}
                 </button>
               </span>
@@ -673,9 +657,9 @@ function CategoryNodeRow({
 
       {/* Add subcategory row */}
       {addingSubcat && (
-        <div className="flex items-stretch bg-blue-50 border-b border-gray-200 pl-2">
+        <div className="flex items-stretch border-b border-rule bg-accent-wash pl-2">
           <Indent depth={depth + 1} />
-          <div className="flex items-center gap-2 py-2 pr-3 flex-1 min-w-0">
+          <div className="flex min-w-0 flex-1 items-center gap-2 py-2 pr-3">
             <input
               autoFocus
               value={subcatName}
@@ -684,17 +668,17 @@ function CategoryNodeRow({
                 if (e.key === 'Enter') createSubcatMut.mutate({ snapshotId, name: subcatName.trim(), parentId: node.cat.id });
                 if (e.key === 'Escape') { setAddingSubcat(false); setSubcatName(''); }
               }}
-              className="border border-gray-300 rounded px-2 py-1 text-sm flex-1 max-w-xs"
+              className="field max-w-xs flex-1"
               placeholder={t.subcategoryName}
             />
             <button
               onClick={() => createSubcatMut.mutate({ snapshotId, name: subcatName.trim(), parentId: node.cat.id })}
               disabled={createSubcatMut.isLoading}
-              className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-mark bg-accent px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {t.add}
             </button>
-            <button onClick={() => { setAddingSubcat(false); setSubcatName(''); }} className="text-xs text-gray-500 hover:text-gray-700">
+            <button onClick={() => { setAddingSubcat(false); setSubcatName(''); }} className={actMuted}>
               {t.cancel}
             </button>
           </div>
@@ -759,42 +743,42 @@ function CategoryNodeRow({
       )}
 
       {/* Delete confirmation dialog */}
-      {pendingDelete && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96">
-            <h2 className="text-base font-semibold mb-2">{t.deleteCategoryTitle}</h2>
-            {previewQuery.isLoading ? (
-              <p className="text-sm text-gray-500 mb-5">{t.loading}</p>
-            ) : previewQuery.isError ? (
-              <p className="text-sm text-red-600 mb-5">
-                {t.deletePreviewError}
-              </p>
-            ) : preview ? (
-              <p className="text-sm text-gray-600 mb-5">
-                {preview.subcategoryCount > 0 || preview.expenseCount > 0
-                  ? t.deleteCategoryBody(
-                      preview.subcategoryCount,
-                      preview.expenseCount,
-                      formatEurCents(preview.totalAmount)
-                    )
-                  : t.deleteEmptyCategory}
-              </p>
-            ) : null}
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setPendingDelete(false)} className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900">
-                {t.cancel}
-              </button>
-              <button
-                onClick={() => deleteMut.mutate({ id: node.cat.id, snapshotId })}
-                disabled={deleteMut.isLoading || previewQuery.isLoading || previewQuery.isError}
-                className="bg-red-600 text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-              >
-                {deleteMut.isLoading ? t.deleting : t.delete}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={pendingDelete}
+        onClose={() => setPendingDelete(false)}
+        title={t.deleteCategoryTitle}
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPendingDelete(false)}>
+              {t.cancel}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => deleteMut.mutate({ id: node.cat.id, snapshotId })}
+              disabled={deleteMut.isLoading || previewQuery.isLoading || previewQuery.isError}
+            >
+              {deleteMut.isLoading ? t.deleting : t.delete}
+            </Button>
+          </>
+        }
+      >
+        {previewQuery.isLoading ? (
+          <span>{t.loading}</span>
+        ) : previewQuery.isError ? (
+          <span className="text-loss">{t.deletePreviewError}</span>
+        ) : preview ? (
+          <span>
+            {preview.subcategoryCount > 0 || preview.expenseCount > 0
+              ? t.deleteCategoryBody(
+                  preview.subcategoryCount,
+                  preview.expenseCount,
+                  formatEurCents(preview.totalAmount)
+                )
+              : t.deleteEmptyCategory}
+          </span>
+        ) : null}
+      </Modal>
     </>
   );
 }
@@ -805,8 +789,7 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
   const [localCategories, setLocalCategories] = useState<Category[]>([]);
 
   // Server categories are authoritative & complete; once a refetch lands,
-  // the local optimistic cache is redundant. Clearing it also drops
-  // session-created categories that have since been deleted server-side.
+  // the local optimistic cache is redundant.
   useEffect(() => {
     setLocalCategories([]);
   }, [categories]);
@@ -857,7 +840,6 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
 
   const allCategories = useMemo(() => {
     const byId = new Map<number, Category>();
-    // Local entries first; prop (server) entries overwrite so server-normalised data always wins
     for (const c of localCategories) byId.set(c.id, c);
     for (const c of categories) byId.set(c.id, c);
     return Array.from(byId.values());
@@ -867,8 +849,6 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
 
   const tree = useMemo(() => buildTree(allCategories, expenses), [allCategories, expenses]);
 
-  // Only categories with content render a per-row toggle, so only those are
-  // "collapsible" and counted when deciding the collapse/expand-all button state.
   const collapsibleIds = useMemo(() => {
     const ids: number[] = [];
     const walk = (nodes: CategoryNode[]) => {
@@ -910,26 +890,22 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold">{t.expenses}</h2>
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-display text-lg font-semibold text-ink">{t.expenses}</h2>
         {collapsibleIds.length > 0 && (
-          <button onClick={toggleAll} className="text-xs text-gray-500 hover:text-gray-700">
+          <button onClick={toggleAll} className="text-xs text-ink-muted hover:text-ink">
             {allCollapsed ? t.expandAll : t.collapseAll}
           </button>
         )}
       </div>
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="card overflow-hidden">
         {allCategories.length === 0 && expenses.length === 0 && !editMode ? (
-          <div className="py-8 text-center text-gray-400 text-sm">
-            {t.noExpensesView}
-          </div>
+          <div className="py-8 text-center text-sm text-ink-muted">{t.noExpensesView}</div>
         ) : (
           <>
             {tree.length === 0 && editMode && (
-              <div className="py-4 text-center text-gray-400 text-sm">
-                {t.noCategories}
-              </div>
+              <div className="py-4 text-center text-sm text-ink-muted">{t.noCategories}</div>
             )}
 
             {tree.map((node, index) => (
@@ -958,7 +934,7 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
             {/* Add top-level category */}
             {editMode && (
               addingTopCat ? (
-                <div className="flex items-center gap-2 p-3 border-t border-gray-200 bg-blue-50">
+                <div className="flex items-center gap-2 border-t border-rule bg-accent-wash p-3">
                   <input
                     autoFocus
                     value={topCatName}
@@ -967,19 +943,19 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
                       if (e.key === 'Enter') createCatMut.mutate({ snapshotId, name: topCatName.trim() });
                       if (e.key === 'Escape') { setAddingTopCat(false); setTopCatName(''); }
                     }}
-                    className="border border-gray-300 rounded px-2 py-1 text-sm flex-1 max-w-xs"
+                    className="field max-w-xs flex-1"
                     placeholder={t.newCategoryName}
                   />
                   <button
                     onClick={() => createCatMut.mutate({ snapshotId, name: topCatName.trim() })}
                     disabled={createCatMut.isLoading}
-                    className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
+                    className="rounded-mark bg-accent px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
                   >
                     {t.add}
                   </button>
                   <button
                     onClick={() => { setAddingTopCat(false); setTopCatName(''); }}
-                    className="text-xs text-gray-500 hover:text-gray-700"
+                    className={actMuted}
                   >
                     {t.cancel}
                   </button>
@@ -987,23 +963,24 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
               ) : (
                 <button
                   onClick={() => setAddingTopCat(true)}
-                  className="w-full text-left py-2 px-3 text-sm text-blue-600 hover:text-blue-800 hover:bg-gray-50 border-t border-gray-200"
+                  className="flex w-full items-center gap-1.5 border-t border-rule px-3 py-2.5 text-left text-sm text-accent transition-colors hover:bg-paper hover:text-accent-hover"
                 >
+                  <IconPlus className="w-4 h-4" />
                   {t.newCategory}
                 </button>
               )
             )}
 
-            {/* Total row */}
+            {/* Grand total — sealed by the accountant's double rule */}
             {(allCategories.length > 0 || expenses.length > 0) && (
-              <div className="flex justify-between items-center px-3 py-2 border-t border-gray-300 bg-gray-50">
-                <span className="text-sm font-semibold text-gray-700">{t.totalExpenses}</span>
-                <span className="text-sm font-semibold tabular-nums">{formatEurCents(totalExpenses)}</span>
+              <div className="flex items-center justify-between border-t-[3px] border-double border-rule-ink bg-paper px-3 py-2.5">
+                <span className="text-sm font-semibold text-ink">{t.totalExpenses}</span>
+                <Figure cents={totalExpenses} className="font-semibold" />
               </div>
             )}
           </>
         )}
       </div>
-    </div>
+    </section>
   );
 }

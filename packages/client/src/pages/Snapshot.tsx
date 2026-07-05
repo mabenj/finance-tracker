@@ -4,6 +4,8 @@ import { trpc } from '../lib/trpc';
 import { SnapshotDetail } from '../components/snapshot/SnapshotDetail';
 import { formatMonthYear } from '../lib/date';
 import { t } from '../lib/strings';
+import { Button } from '../components/ui/Button';
+import { IconArrowLeft, IconPencil, IconEye } from '../components/ui/icons';
 
 export function Snapshot() {
   const { id } = useParams<{ id: string }>();
@@ -20,51 +22,57 @@ export function Snapshot() {
   );
 
   if (isLoading) {
-    return <div className="text-center py-16 text-gray-400">{t.loading}</div>;
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-10" aria-busy="true" aria-label={t.loading}>
+        <div className="mb-8 h-8 w-48 rounded-mark bg-rule motion-safe:animate-pulse" />
+        <div className="card h-56 motion-safe:animate-pulse" />
+        <div className="mt-8 card h-40 motion-safe:animate-pulse" />
+      </div>
+    );
   }
 
   if (!data) {
     return (
-      <div className="text-center py-16 text-gray-500">
-        <p className="mb-4">{t.snapshotNotFound}</p>
-        <button onClick={() => navigate('/')} className="text-blue-600 hover:underline text-sm">
-          {t.backToDashboard}
-        </button>
+      <div className="mx-auto max-w-md px-4 py-16">
+        <div className="card flex flex-col items-center gap-4 px-6 py-12 text-center">
+          <p className="font-display text-lg font-semibold text-ink">{t.snapshotNotFound}</p>
+          <Button variant="secondary" onClick={() => navigate('/')}>
+            <IconArrowLeft />
+            {t.backToDashboard}
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto py-10 px-4">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <button
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => navigate('/')}
-            className="text-gray-400 hover:text-gray-700 text-sm"
+            aria-label={t.dashboardLink}
+            className="px-2"
           >
-            {t.dashboardLink}
-          </button>
-          <h1 className="text-2xl font-bold tracking-tight">
+            <IconArrowLeft />
+            <span className="hidden sm:inline">{t.dashboardLink}</span>
+          </Button>
+          <h1 className="truncate font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
             {formatMonthYear(data.year, data.month)}
           </h1>
         </div>
-        <button
+        <Button
+          variant={editMode ? 'secondary' : 'primary'}
           onClick={() => setEditMode((e) => !e)}
-          className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-            editMode
-              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
-          }`}
         >
+          {editMode ? <IconEye /> : <IconPencil />}
           {editMode ? t.viewMode : t.editMode}
-        </button>
+        </Button>
       </div>
 
-      <SnapshotDetail
-        snapshot={data}
-        editMode={editMode}
-        onUpdate={() => refetch()}
-      />
+      <SnapshotDetail snapshot={data} editMode={editMode} onUpdate={() => refetch()} />
     </div>
   );
 }
