@@ -1,5 +1,13 @@
 import { describe, test, expect } from 'bun:test';
-import { formatEurCents, centsToEuroStr, sanitizeEuroInput, eurosToCents } from './currency';
+import {
+  formatEurCents,
+  centsToEuroStr,
+  sanitizeEuroInput,
+  eurosToCents,
+  sanitizeSignedEuroInput,
+  signedEurosToCents,
+  applyEuroAdjustment,
+} from './currency';
 
 describe('formatEurCents', () => {
   test('formats a typical amount with thousands separator and no decimals', () => {
@@ -62,5 +70,59 @@ describe('eurosToCents', () => {
   });
   test('returns null when the value exceeds safe-integer precision', () => {
     expect(eurosToCents('999999999999999')).toBeNull();
+  });
+});
+
+describe('sanitizeSignedEuroInput', () => {
+  test('keeps a plain positive integer', () => {
+    expect(sanitizeSignedEuroInput('50')).toBe('50');
+  });
+  test('preserves a single leading minus for subtraction', () => {
+    expect(sanitizeSignedEuroInput('-20')).toBe('-20');
+  });
+  test('truncates the fraction, keeping the sign', () => {
+    expect(sanitizeSignedEuroInput('-12,50')).toBe('-12');
+    expect(sanitizeSignedEuroInput('12.99')).toBe('12');
+  });
+  test('allows a lone minus mid-typing', () => {
+    expect(sanitizeSignedEuroInput('-')).toBe('-');
+  });
+  test('strips a trailing/interior minus and stray characters', () => {
+    expect(sanitizeSignedEuroInput('1a2b')).toBe('12');
+    expect(sanitizeSignedEuroInput('5-')).toBe('5');
+  });
+  test('empty stays empty', () => {
+    expect(sanitizeSignedEuroInput('')).toBe('');
+  });
+});
+
+describe('signedEurosToCents', () => {
+  test('converts positive and negative whole euros to cents', () => {
+    expect(signedEurosToCents('50')).toBe(5000);
+    expect(signedEurosToCents('-20')).toBe(-2000);
+    expect(signedEurosToCents('0')).toBe(0);
+  });
+  test('returns null for empty input or a lone minus', () => {
+    expect(signedEurosToCents('')).toBeNull();
+    expect(signedEurosToCents('-')).toBeNull();
+  });
+});
+
+describe('applyEuroAdjustment', () => {
+  test('adds a positive delta to the current amount', () => {
+    expect(applyEuroAdjustment(12000, '50')).toBe(17000); // 120 € + 50 € = 170 €
+  });
+  test('subtracts a negative delta', () => {
+    expect(applyEuroAdjustment(17000, '-20')).toBe(15000); // 170 € − 20 € = 150 €
+  });
+  test('clamps an overshooting subtraction to zero', () => {
+    expect(applyEuroAdjustment(17000, '-200')).toBe(0); // 170 € − 200 € → 0 €
+  });
+  test('subtracting exactly to zero is allowed', () => {
+    expect(applyEuroAdjustment(17000, '-170')).toBe(0);
+  });
+  test('returns null for an empty or incomplete delta (no-op)', () => {
+    expect(applyEuroAdjustment(12000, '')).toBeNull();
+    expect(applyEuroAdjustment(12000, '-')).toBeNull();
   });
 });

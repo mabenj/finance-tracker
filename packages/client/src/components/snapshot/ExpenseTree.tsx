@@ -1,7 +1,15 @@
 import { useState, useMemo, useEffect } from 'react';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
-import { formatEurCents, centsToEuroStr, eurosToCents, sanitizeEuroInput } from '../../lib/currency';
+import {
+  formatEurCents,
+  centsToEuroStr,
+  eurosToCents,
+  sanitizeEuroInput,
+  sanitizeSignedEuroInput,
+  signedEurosToCents,
+  applyEuroAdjustment,
+} from '../../lib/currency';
 import { sumTree } from '../../lib/sum-tree';
 import { CategoryPicker } from './CategoryPicker';
 import { ReorderButtons } from './ReorderButtons';
@@ -125,6 +133,15 @@ function ExpenseRow({
   const [amount, setAmount] = useState(centsToEuroStr(expense.amount));
   const [recurring, setRecurring] = useState(expense.recurring === 1);
   const [categoryId, setCategoryId] = useState(expense.category_id);
+  // Signed adjustment composed inside the edit form. Folded into `amount`
+  // locally; only persisted when Save is clicked.
+  const [adjust, setAdjust] = useState('');
+
+  // Row-level quick-adjust: an inline accumulator that saves each fold straight
+  // to the server. `baseCents` mirrors the last saved amount during the session.
+  const [adjusting, setAdjusting] = useState(false);
+  const [delta, setDelta] = useState('');
+  const [baseCents, setBaseCents] = useState(expense.amount);
 
   const upsertMut = trpc.expenses.upsert.useMutation({
     onSuccess: () => { onUpdate(); setEditing(false); },
@@ -136,17 +153,66 @@ function ExpenseRow({
     onError: (err) => showToast(err.message),
   });
 
+  const quickAdjustMut = trpc.expenses.upsert.useMutation({
+    onSuccess: (saved) => { setBaseCents(saved.amount); setDelta(''); onUpdate(); },
+    onError: (err) => showToast(err.message),
+  });
+
+  // ── Edit-form adjustment (folds locally into `amount`) ──
+  const formDelta = signedEurosToCents(adjust);
+  const formBase = eurosToCents(amount) ?? 0;
+  const formActive = formDelta !== null && formDelta !== 0;
+  const formNext = formActive ? applyEuroAdjustment(formBase, adjust)! : formBase;
+
+  function foldAdjust() {
+    if (!formActive) return;
+    setAmount(centsToEuroStr(formNext));
+    setAdjust('');
+  }
+
   function handleSave() {
-    const parsedAmount = eurosToCents(amount);
-    if (parsedAmount === null || parsedAmount < 0) { showToast(t.amountNonNegative); return; }
+    // Flush any un-applied adjustment so a typed delta is never silently lost.
+    const base = eurosToCents(amount);
+    const finalCents = formDelta !== null ? Math.max(0, (base ?? 0) + formDelta) : base;
+    if (finalCents === null || finalCents < 0) { showToast(t.amountNonNegative); return; }
     upsertMut.mutate({
       id: expense.id,
       snapshotId,
       name: name.trim(),
-      amount: parsedAmount,
+      amount: finalCents,
       categoryId,
       recurring,
     });
+  }
+
+  // ── Row-level quick-adjust (persists each fold) ──
+  const quickDelta = signedEurosToCents(delta);
+  const quickActive = quickDelta !== null && quickDelta !== 0;
+  const quickNext = quickActive ? applyEuroAdjustment(baseCents, delta)! : baseCents;
+
+  function openQuickAdjust() {
+    setBaseCents(expense.amount);
+    setDelta('');
+    setAdjusting(true);
+  }
+
+  // Persist the pending fold, then run onSaved (used to close after "done").
+  // A no-op delta just runs onSaved. Guarded so a second Enter can't fold a
+  // stale base while a save is still in flight.
+  function saveQuickFold(onSaved?: () => void) {
+    if (quickAdjustMut.isLoading) return;
+    if (!quickActive) { onSaved?.(); return; }
+    quickAdjustMut.mutate(
+      {
+        id: expense.id,
+        snapshotId,
+        name: expense.name,
+        amount: quickNext,
+        categoryId: expense.category_id,
+        recurring: expense.recurring === 1,
+      },
+      onSaved ? { onSuccess: onSaved } : undefined
+    );
   }
 
   if (editing) {
@@ -172,6 +238,35 @@ function ExpenseRow({
               className="border border-gray-300 rounded px-2 py-1 text-sm w-28 text-right"
               placeholder="0"
             />
+          </div>
+          {/* Signed adjustment — fold a delta into the amount above */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-gray-500">{t.adjust}</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={adjust}
+              onChange={(e) => setAdjust(sanitizeSignedEuroInput(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); foldAdjust(); }
+                if (e.key === 'Escape') setEditing(false);
+              }}
+              className="border border-gray-300 rounded px-2 py-1 text-sm w-24 text-right"
+              placeholder={t.adjustPlaceholder}
+            />
+            <button
+              type="button"
+              onClick={foldAdjust}
+              disabled={!formActive}
+              className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-40 disabled:cursor-default px-1"
+            >
+              {t.adjustApply}
+            </button>
+            {formActive && (
+              <span className="text-xs tabular-nums text-gray-500">
+                {formatEurCents(formBase)} → {formatEurCents(formNext)}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-gray-500">{t.categoryLabel}</span>
@@ -221,30 +316,81 @@ function ExpenseRow({
             <span className="text-xs text-gray-400 shrink-0" title={t.recurring}>↻</span>
           )}
         </span>
-        <span className="flex items-center gap-3 shrink-0 ml-4">
-          <span className="text-sm tabular-nums text-gray-800">{formatEurCents(expense.amount)}</span>
-          {editMode && (
-            <>
-              <ReorderButtons
-                canMoveUp={index > 0}
-                canMoveDown={index < siblingIds.length - 1}
-                pending={expensesPending}
-                onMoveUp={() => onMoveExpense(expense.category_id, siblingIds, index, 'up')}
-                onMoveDown={() => onMoveExpense(expense.category_id, siblingIds, index, 'down')}
-              />
-              <button onClick={() => setEditing(true)} className="text-xs text-blue-500 hover:text-blue-700">
-                {t.edit}
-              </button>
-              <button
-                onClick={() => deleteMut.mutate({ id: expense.id, snapshotId })}
-                disabled={deleteMut.isLoading}
-                className="text-xs text-red-400 hover:text-red-600 disabled:opacity-50"
-              >
-                {deleteMut.isLoading ? '…' : t.delete}
-              </button>
-            </>
-          )}
-        </span>
+        {editMode && adjusting ? (
+          <span className="flex items-center gap-2 shrink-0 ml-4">
+            <input
+              autoFocus
+              type="text"
+              inputMode="numeric"
+              value={delta}
+              onChange={(e) => setDelta(sanitizeSignedEuroInput(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); saveQuickFold(); }
+                if (e.key === 'Escape') setAdjusting(false);
+              }}
+              className="border border-gray-300 rounded px-2 py-1 text-sm w-20 text-right"
+              placeholder={t.adjustPlaceholder}
+            />
+            {quickActive ? (
+              <span className="text-sm tabular-nums text-gray-500">
+                {formatEurCents(baseCents)} →{' '}
+                <span className="font-medium text-gray-800">{formatEurCents(quickNext)}</span>
+              </span>
+            ) : (
+              <span className="text-sm tabular-nums text-gray-800">{formatEurCents(baseCents)}</span>
+            )}
+            <button
+              type="button"
+              onClick={() => saveQuickFold()}
+              disabled={!quickActive || quickAdjustMut.isLoading}
+              title={t.adjustApply}
+              className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 disabled:opacity-40"
+            >
+              {t.adjustApply}
+            </button>
+            <button
+              type="button"
+              onClick={() => saveQuickFold(() => setAdjusting(false))}
+              disabled={quickAdjustMut.isLoading}
+              className="text-xs text-gray-500 hover:text-gray-700 px-1 disabled:opacity-50"
+            >
+              {t.done}
+            </button>
+          </span>
+        ) : (
+          <span className="flex items-center gap-3 shrink-0 ml-4">
+            <span className="text-sm tabular-nums text-gray-800">{formatEurCents(expense.amount)}</span>
+            {editMode && (
+              <>
+                <ReorderButtons
+                  canMoveUp={index > 0}
+                  canMoveDown={index < siblingIds.length - 1}
+                  pending={expensesPending}
+                  onMoveUp={() => onMoveExpense(expense.category_id, siblingIds, index, 'up')}
+                  onMoveDown={() => onMoveExpense(expense.category_id, siblingIds, index, 'down')}
+                />
+                <button
+                  onClick={openQuickAdjust}
+                  title={t.adjust}
+                  aria-label={t.adjust}
+                  className="text-sm text-green-600 hover:text-green-800 font-medium leading-none px-1"
+                >
+                  ±
+                </button>
+                <button onClick={() => setEditing(true)} className="text-xs text-blue-500 hover:text-blue-700">
+                  {t.edit}
+                </button>
+                <button
+                  onClick={() => deleteMut.mutate({ id: expense.id, snapshotId })}
+                  disabled={deleteMut.isLoading}
+                  className="text-xs text-red-400 hover:text-red-600 disabled:opacity-50"
+                >
+                  {deleteMut.isLoading ? '…' : t.delete}
+                </button>
+              </>
+            )}
+          </span>
+        )}
       </div>
     </div>
   );
