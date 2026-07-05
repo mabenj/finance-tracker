@@ -78,12 +78,38 @@ export function carryForward(
     )
     .all(previousSnapshotId);
 
+  // Only carry a category if its subtree contains a recurring expense — i.e. the
+  // category itself or a descendant directly holds a recurring=1 expense. This
+  // prunes leaves and whole branches that hold only one-off expenses or nothing,
+  // while keeping the full ancestor chain of every survivor (a recurring
+  // grandchild keeps its parent and grandparent so the remap can re-attach it).
+  const directRecurring = db
+    .query<{ category_id: number }, [number]>(
+      'SELECT DISTINCT category_id FROM expenses WHERE snapshot_id = ? AND recurring = 1'
+    )
+    .all(previousSnapshotId);
+
+  const parentOf = new Map<number, number | null>();
+  for (const cat of prevCategories) parentOf.set(cat.id, cat.parent_id);
+
+  const keep = new Set<number>();
+  for (const { category_id } of directRecurring) {
+    // Walk up the parent chain; stop early once we hit an already-kept ancestor
+    // (its own chain to the root is guaranteed kept already).
+    let cur: number | null = category_id;
+    while (cur !== null && !keep.has(cur)) {
+      keep.add(cur);
+      cur = parentOf.get(cur) ?? null;
+    }
+  }
+
   const idMap = new Map<number, number>();
   const insertCategory = db.prepare(
     'INSERT INTO expense_categories (snapshot_id, name, parent_id, position) VALUES (?, ?, ?, ?)'
   );
 
   for (const cat of prevCategories) {
+    if (!keep.has(cat.id)) continue;
     let newParentId: number | null = null;
     if (cat.parent_id !== null) {
       const mapped = idMap.get(cat.parent_id);

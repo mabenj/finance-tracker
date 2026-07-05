@@ -48,7 +48,7 @@ The Vite dev server proxies `/trpc` to `http://localhost:3001`. In production, b
 - Shared validators: `src/lib/validators.ts` — `trimmedText` (1–100 chars) and `eurCents` (non-negative integer)
 - Context: `{ db: Database }` passed to every tRPC procedure
 
-**Carry-forward logic** (`src/lib/carry-forward.ts`): when a new snapshot is created, the server copies accounts, the full category tree (remapping IDs), and recurring-only expenses/incomes from the most recent prior snapshot.
+**Carry-forward logic** (`src/services/carry-forward.ts`): when a new snapshot is created, the server copies accounts, the category tree pruned to branches that contain a recurring expense (remapping IDs; a category survives iff it or a descendant holds a `recurring=1` expense, and its full ancestor chain is kept), and recurring-only expenses/incomes from the most recent prior snapshot.
 
 ### Client (`packages/client`)
 
