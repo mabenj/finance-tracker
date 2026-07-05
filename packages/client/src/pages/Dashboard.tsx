@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { trpc } from '../lib/trpc';
 import { SnapshotList } from '../components/dashboard/SnapshotList';
 import { MONTH_NAMES, formatMonthYear } from '../lib/date';
@@ -17,6 +18,7 @@ function defaultCreateMonth(snapshots: { year: number; month: number }[]) {
 }
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const { data: snapshots = [], isLoading } = trpc.dashboard.summary.useQuery();
   const utils = trpc.useContext();
 
@@ -30,10 +32,10 @@ export function Dashboard() {
   const takenSet = new Set(snapshots.map((s) => `${s.year}-${s.month}`));
 
   const createMutation = trpc.snapshots.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       utils.dashboard.summary.invalidate();
-      setDialogOpen(false);
       setCreateError(null);
+      navigate(`/snapshots/${data.id}`, { state: { edit: true } });
     },
     onError: (err) => setCreateError(err.message),
   });

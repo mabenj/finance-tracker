@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { trpc } from '../lib/trpc';
 import { SnapshotDetail } from '../components/snapshot/SnapshotDetail';
 import { formatMonthYear } from '../lib/date';
@@ -8,7 +8,10 @@ import { t } from '../lib/strings';
 export function Snapshot() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [editMode, setEditMode] = useState(false);
+  const location = useLocation();
+  const [editMode, setEditMode] = useState(
+    Boolean((location.state as { edit?: boolean } | null)?.edit)
+  );
 
   const snapshotId = Number(id);
   const { data, isLoading, refetch } = trpc.snapshots.get.useQuery(
