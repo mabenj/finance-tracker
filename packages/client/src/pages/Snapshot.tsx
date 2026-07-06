@@ -5,6 +5,7 @@ import { SnapshotDetail } from '../components/snapshot/SnapshotDetail';
 import { formatMonthYear } from '../lib/date';
 import { t } from '../lib/strings';
 import { Button } from '../components/ui/Button';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { IconArrowLeft, IconPencil, IconEye } from '../components/ui/icons';
 
 export function Snapshot() {
@@ -63,13 +64,16 @@ export function Snapshot() {
             {formatMonthYear(data.year, data.month)}
           </h1>
         </div>
-        <Button
-          variant={editMode ? 'secondary' : 'primary'}
-          onClick={() => setEditMode((e) => !e)}
-        >
-          {editMode ? <IconEye /> : <IconPencil />}
-          {editMode ? t.viewMode : t.editMode}
-        </Button>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <Button
+            variant={editMode ? 'secondary' : 'primary'}
+            onClick={() => setEditMode((e) => !e)}
+          >
+            {editMode ? <IconEye /> : <IconPencil />}
+            {editMode ? t.viewMode : t.editMode}
+          </Button>
+        </div>
       </div>
 
       <SnapshotDetail snapshot={data} editMode={editMode} onUpdate={() => refetch()} />

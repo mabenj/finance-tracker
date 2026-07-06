@@ -12,7 +12,7 @@ import {
 import { computeNetWorthDelta, sumNetWorth, buildAccountChartData } from '../../lib/net-worth';
 import { formatEurCents } from '../../lib/currency';
 import { t } from '../../lib/strings';
-import { chart } from '../../lib/theme';
+import { useTheme, chartPalette } from '../../lib/theme';
 import { Figure } from '../ui/Figure';
 import { Delta } from '../ui/Delta';
 
@@ -28,6 +28,8 @@ interface Props {
 }
 
 export function NetWorthComparison({ accounts, previousAccounts }: Props) {
+  const { theme } = useTheme();
+  const chart = chartPalette[theme];
   const netWorth = sumNetWorth(accounts);
   const prevNetWorth = previousAccounts !== null ? sumNetWorth(previousAccounts) : null;
 
@@ -90,7 +92,7 @@ export function NetWorthComparison({ accounts, previousAccounts }: Props) {
               width={80}
             />
             <Tooltip
-              cursor={{ fill: 'rgba(38,69,122,0.06)' }}
+              cursor={{ fill: theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(38,69,122,0.06)' }}
               formatter={(value: number) => formatEurCents(value)}
               contentStyle={{
                 background: 'var(--sheet)',
@@ -101,7 +103,7 @@ export function NetWorthComparison({ accounts, previousAccounts }: Props) {
               }}
               labelStyle={{ fontWeight: 600, color: 'var(--ink)' }}
             />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Legend wrapperStyle={{ fontSize: 12, color: chart.legend }} />
             <ReferenceLine y={0} stroke={chart.zero} strokeWidth={1} />
             {prevNetWorth !== null && (
               <Bar dataKey="Previous" name={t.previous} fill={chart.previous} radius={[2, 2, 0, 0]} />

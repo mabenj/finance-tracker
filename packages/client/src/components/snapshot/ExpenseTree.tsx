@@ -283,7 +283,7 @@ function ExpenseRow({
               <button
                 onClick={handleSave}
                 disabled={upsertMut.isLoading}
-                className="rounded-mark bg-accent px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+                className="rounded-mark bg-accent px-3 py-1 text-xs font-medium text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
               >
                 {upsertMut.isLoading ? t.saving : t.save}
               </button>
@@ -336,7 +336,7 @@ function ExpenseRow({
               onClick={() => saveQuickFold()}
               disabled={!quickActive || quickAdjustMut.isLoading}
               title={t.adjustApply}
-              className="rounded-mark bg-accent px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+              className="rounded-mark bg-accent px-2 py-1 text-xs font-medium text-onFill transition-colors hover:bg-accent-hover disabled:opacity-40"
             >
               {t.adjustApply}
             </button>
@@ -475,7 +475,7 @@ function AddExpenseRow({
             <button
               onClick={handleSave}
               disabled={upsertMut.isLoading}
-              className="rounded-mark bg-accent px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+              className="rounded-mark bg-accent px-3 py-1 text-xs font-medium text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {upsertMut.isLoading ? t.saving : t.add}
             </button>
@@ -674,7 +674,7 @@ function CategoryNodeRow({
             <button
               onClick={() => createSubcatMut.mutate({ snapshotId, name: subcatName.trim(), parentId: node.cat.id })}
               disabled={createSubcatMut.isLoading}
-              className="rounded-mark bg-accent px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+              className="rounded-mark bg-accent px-2 py-1 text-xs font-medium text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {t.add}
             </button>
@@ -949,7 +949,7 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
                   <button
                     onClick={() => createCatMut.mutate({ snapshotId, name: topCatName.trim() })}
                     disabled={createCatMut.isLoading}
-                    className="rounded-mark bg-accent px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+                    className="rounded-mark bg-accent px-3 py-1 text-xs font-medium text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
                   >
                     {t.add}
                   </button>

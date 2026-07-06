@@ -12,9 +12,9 @@ interface Props extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 // Solid fills carry white text; the accent stays quiet and is the only place
 // brand color appears on an action. Focus is handled globally via :focus-visible.
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-accent text-white hover:bg-accent-hover shadow-sheet',
+  primary: 'bg-accent text-onFill hover:bg-accent-hover shadow-sheet',
   secondary: 'bg-sheet text-ink border border-rule-strong hover:bg-paper hover:border-ink-faint',
-  danger: 'bg-loss text-white hover:bg-loss-hover shadow-sheet',
+  danger: 'bg-loss text-onFill hover:bg-loss-hover shadow-sheet',
   ghost: 'text-ink-muted hover:text-ink hover:bg-paper',
   link: 'text-accent hover:text-accent-hover hover:underline underline-offset-2 px-0',
 };

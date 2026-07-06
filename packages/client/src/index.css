@@ -40,6 +40,50 @@
     --overlay: rgba(20, 26, 38, 0.45);
     --shadow-sheet: 0 1px 2px rgba(28, 36, 51, 0.04), 0 2px 6px rgba(28, 36, 51, 0.06);
     --shadow-pop: 0 12px 32px -8px rgba(28, 36, 51, 0.28), 0 4px 12px rgba(28, 36, 51, 0.1);
+
+    /* Text placed on a solid semantic fill (accent/gain/loss buttons, toasts).
+       Light theme: fills are deep, so on-fill text is white. */
+    --on-fill: #ffffff;
+
+    color-scheme: light;
+  }
+
+  /* ── Dark theme ──────────────────────────────────────────────────────────
+     Same contract, inverted. Surfaces darken; ink lightens; the semantic
+     accent/gain/loss become light "chips" that carry dark on-fill text — so
+     they read as bright figures/links on the dark sheet while their solid
+     button/toast fills stay legible. Every pair verified for WCAG AA.       */
+  :root[data-theme='dark'] {
+    --paper: #0f1420;
+    --sheet: #1a2130;
+
+    --ink: #e7eaf0;
+    --ink-muted: #a2acbd;
+    --ink-faint: #6d7789;
+
+    --accent: #6f9ae0;
+    --accent-hover: #86abe9;
+    --accent-wash: #1f2d43;
+
+    --gain: #4ac08a;
+    --gain-hover: #63cf9d;
+    --gain-wash: #13372a;
+    --loss: #f0687a;
+    --loss-hover: #f5808f;
+    --loss-wash: #3a1c22;
+
+    --rule: #2a3242;
+    --rule-strong: #3a4356;
+    --rule-ink: #5b6788;
+
+    --overlay: rgba(3, 6, 12, 0.6);
+    --shadow-sheet: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.35);
+    --shadow-pop: 0 12px 32px -8px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+
+    /* Dark theme: fills are light chips, so on-fill text is deep navy. */
+    --on-fill: #0e1420;
+
+    color-scheme: dark;
   }
 
   html {
@@ -130,6 +174,11 @@
     background-position: right 0.5rem center;
     background-size: 1.1rem;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%235b6472' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+  }
+
+  /* Dark theme needs a lighter chevron stroke to stay visible on the dark field */
+  :root[data-theme='dark'] select.field {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23a2acbd' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
   }
 }
 

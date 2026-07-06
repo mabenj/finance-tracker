@@ -35,6 +35,9 @@ export default {
           strong: 'var(--rule-strong)',
           ink: 'var(--rule-ink)',
         },
+        // Text/icon color that sits on a solid semantic fill (white in light,
+        // deep navy in dark) — replaces hardcoded text-white on those chips.
+        onFill: 'var(--on-fill)',
       },
       fontFamily: {
         display: ['Spectral', 'Georgia', 'serif'],

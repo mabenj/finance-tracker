@@ -44,7 +44,7 @@ export function SankeyDiagram({ incomes, expenses, categories }: Props) {
   const graph = buildSankeyGraph(incomes, expenses, categories);
 
   if (graph.nodes.length === 0) {
-    return <p className="text-sm text-gray-400 italic">{t.sankeyNoData}</p>;
+    return <p className="text-sm text-ink-muted italic">{t.sankeyNoData}</p>;
   }
 
   const { nodes, links, width, height } = layoutSankey(graph);
@@ -120,8 +120,7 @@ export function SankeyDiagram({ incomes, expenses, categories }: Props) {
                 dy="0.35em"
                 textAnchor={labelOnLeft ? 'end' : 'start'}
                 fontSize={LABEL_FONT_PX}
-                fill="#1f2937"
-                className="select-none"
+                className="select-none [fill:var(--ink)]"
               >
                 {n.name} {formatEurCents(n.value)}
               </text>

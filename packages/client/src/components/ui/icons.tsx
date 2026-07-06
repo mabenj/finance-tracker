@@ -84,6 +84,23 @@ export function IconEye({ className }: IconProps) {
   );
 }
 
+export function IconSun({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={base(className)} aria-hidden="true">
+      <circle cx="10" cy="10" r="3.5" />
+      <path d="M10 1.5v2M10 16.5v2M3.5 3.5l1.4 1.4M15.1 15.1l1.4 1.4M1.5 10h2M16.5 10h2M3.5 16.5l1.4-1.4M15.1 4.9l1.4-1.4" />
+    </svg>
+  );
+}
+
+export function IconMoon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className={base(className)} aria-hidden="true">
+      <path d="M17 12.3A7 7 0 017.7 3 7 7 0 1017 12.3z" />
+    </svg>
+  );
+}
+
 export function IconChevron({ className, expanded }: IconProps & { expanded?: boolean }) {
   return (
     <svg

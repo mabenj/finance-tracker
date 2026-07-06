@@ -36,7 +36,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto rounded-control px-4 py-3 text-sm font-medium text-white shadow-pop motion-safe:animate-[modal-in_140ms_ease-out] ${
+            className={`pointer-events-auto rounded-control px-4 py-3 text-sm font-medium text-onFill shadow-pop motion-safe:animate-[modal-in_140ms_ease-out] ${
               toast.type === 'error' ? 'bg-loss' : 'bg-gain'
             }`}
           >

@@ -5,6 +5,7 @@ import { trpc } from './lib/trpc';
 import { Dashboard } from './pages/Dashboard';
 import { Snapshot } from './pages/Snapshot';
 import { ToastProvider } from './lib/toast';
+import { ThemeProvider } from './lib/theme';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,17 +19,19 @@ const trpcClient = trpc.createClient({
 
 export function App() {
   return (
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/snapshots/:id" element={<Snapshot />} />
-            </Routes>
-          </BrowserRouter>
-        </ToastProvider>
-      </QueryClientProvider>
-    </trpc.Provider>
+    <ThemeProvider>
+      <trpc.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <ToastProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/snapshots/:id" element={<Snapshot />} />
+              </Routes>
+            </BrowserRouter>
+          </ToastProvider>
+        </QueryClientProvider>
+      </trpc.Provider>
+    </ThemeProvider>
   );
 }

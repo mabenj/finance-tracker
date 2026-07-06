@@ -6,6 +6,7 @@ import { MONTH_NAMES, formatMonthYear } from '../lib/date';
 import { t } from '../lib/strings';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { IconPlus } from '../components/ui/icons';
 
 function defaultCreateMonth(snapshots: { year: number; month: number }[]) {
@@ -65,10 +66,13 @@ export function Dashboard() {
         <h1 className="font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
           {t.dashboardTitle}
         </h1>
-        <Button onClick={openDialog} aria-label={t.newSnapshot} className="shrink-0">
-          <IconPlus />
-          <span className="hidden sm:inline">{t.newSnapshot}</span>
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          <ThemeToggle />
+          <Button onClick={openDialog} aria-label={t.newSnapshot}>
+            <IconPlus />
+            <span className="hidden sm:inline">{t.newSnapshot}</span>
+          </Button>
+        </div>
       </div>
 
       <SnapshotList snapshots={snapshots} isLoading={isLoading} onCreateClick={openDialog} />

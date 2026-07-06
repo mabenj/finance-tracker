@@ -57,6 +57,8 @@ export const t = {
   dashboardLink: "Etusivu",
   viewMode: "Katselutila",
   editMode: "Muokkaustila",
+  switchToDark: "Vaihda tummaan tilaan",
+  switchToLight: "Vaihda vaaleaan tilaan",
 
   // ── Accounts ──────────────────────────────────────────────────────
   accounts: "Tilit",

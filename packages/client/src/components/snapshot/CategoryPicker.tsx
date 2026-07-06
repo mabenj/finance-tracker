@@ -118,7 +118,7 @@ export function CategoryPicker({ snapshotId, categories, value, onChange, onCate
                 <button
                   onClick={submitNew}
                   disabled={create.isLoading}
-                  className="rounded-mark bg-accent px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+                  className="rounded-mark bg-accent px-2 py-1 text-xs font-medium text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
                 >
                   {t.add}
                 </button>
