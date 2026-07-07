@@ -77,8 +77,8 @@ describe('layoutSankey', () => {
     const small = layoutSankey(buildSankeyGraph([salary], [], [])); // 1 node per column
     expect(small.height).toBe(MIN_HEIGHT);
 
-    // catA: 15 flat expenses (all depth 3). catB → subB: 15 expenses (all depth 4).
-    // Densest column = depth 3 (15 catA expenses + subB = 16), well under the 30 total sinks.
+    // catA: 15 flat expenses (all depth 4). catB → subB: 15 expenses (all depth 5).
+    // Densest column = depth 4 (15 catA expenses + subB = 16), well under the 30 total sinks.
     const cats = [
       { id: 1, parent_id: null, name: 'A' },
       { id: 2, parent_id: null, name: 'B' },
@@ -89,8 +89,8 @@ describe('layoutSankey', () => {
       ...Array.from({ length: 15 }, (_, i) => ({ id: 100 + i, category_id: 3, name: `B${i}`, amount: 1000 + i })),
     ];
     const big = layoutSankey(buildSankeyGraph([salary], expenses, cats));
-    const totalSinks = 31; // 30 expenses + Savings
-    const densest = 16; // depth-3 column
+    const totalSinks = 31; // 30 expenses + Surplus
+    const densest = 16; // depth-4 column
     expect(big.height).toBeGreaterThan(MIN_HEIGHT);
     expect(big.height).toBe(densest * SLOT_PX + 32); // PAD_TOP + PAD_BOTTOM = 32
     expect(big.height).toBeLessThan(totalSinks * SLOT_PX); // proves it's NOT sink-count-based
@@ -111,14 +111,20 @@ describe('layoutSankey', () => {
     expect(deep.width).toBeGreaterThan(flat.width);
   });
 
-  test('Budget sits left of categories, which sit left of their expenses', () => {
+  test('Budget sits left of Expenses, which sits left of categories and their expenses', () => {
     const { nodes } = layoutSankey(normalGraph());
     const budget = nodes.find((n) => n.id === 'budget')!;
+    const expensesTotal = nodes.find((n) => n.id === 'expenses')!;
+    const surplus = nodes.find((n) => n.id === 'surplus')!;
     const food = nodes.find((n) => n.id === 'cat-1')!;
     const groceries = nodes.find((n) => n.id === 'exp-1')!;
     const income = nodes.find((n) => n.id === 'income-1')!;
     expect(income.x0).toBeLessThan(budget.x0);
-    expect(budget.x0).toBeLessThan(food.x0);
+    expect(budget.x0).toBeLessThan(expensesTotal.x0);
+    expect(expensesTotal.x0).toBeLessThan(food.x0);
     expect(food.x0).toBeLessThan(groceries.x0);
+    // Siblings: Expenses and Surplus share a column, Surplus below.
+    expect(Math.round(surplus.x0)).toBe(Math.round(expensesTotal.x0));
+    expect(surplus.y0).toBeGreaterThan(expensesTotal.y0);
   });
 });

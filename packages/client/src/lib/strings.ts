@@ -145,5 +145,6 @@ export const t = {
   // Sankey node display labels (the diagram's IDs stay English; only labels are localized).
   sankeyUnspecifiedIncome: "Erittelemätön tulo",
   sankeyDeficit: "Alijäämä",
-  sankeySavings: "Säästöt",
+  sankeySurplus: "Ylijäämä",
+  sankeyBudget: "Budjetti",
 };

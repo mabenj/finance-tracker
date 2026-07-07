@@ -19,17 +19,19 @@ The data is a strict **tree** (one trunk, every node has exactly one parent). A 
 
 ```
 Salary    ─┐
-Bonus     ─┼─► [ Expenses ] ─┬─► Housing  ─► Rent
-Side gig  ─┘                 │            └─► Utilities ─► Electricity
-                             ├─► Food     ─► Groceries
-                             │            └─► Restaurants
-                             ├─► Transport ─► Bus ticket   (direct expense, shallow)
-                             │             └─► Car ─► Fuel  (subcategory, deeper)
-                             └─► Savings                    (pinned bottom)
+Bonus     ─┼─► [ Budget ] ─┬─► [ Expenses ] ─┬─► Housing  ─► Rent
+Side gig  ─┘               │                 │            └─► Utilities ─► Electricity
+                           │                 ├─► Food     ─► Groceries
+                           │                 │            └─► Restaurants
+                           │                 ├─► Transport ─► Bus ticket   (direct expense, shallow)
+                           │                 │             └─► Car ─► Fuel  (subcategory, deeper)
+                           └─► Surplus                      (pinned bottom, sibling of Expenses)
 ```
 
-- **One trunk node.** Income sources flow *in*; expense categories and Savings flow *out*. Its internal `id`/`type` is `budget`, but it is **labelled "Expenses"** in the UI.
-- **Full depth to individual expenses.** `trunk → top category → … → leaf category → individual expense`. Individual expenses are terminal leaf nodes carrying their own name.
+- **One trunk node.** Income sources flow *in*; the Expenses aggregate and Surplus flow *out* as **siblings**. Its `id`/`type` is `budget`, labelled **"Budjetti"**.
+- **One Expenses aggregate node** (`id` `expenses`, type `expenses-total`, labelled "Menot") sits between the trunk and the top categories, carrying the total-expenses value. It appears whenever total expenses > 0 — including deficit/break-even months, where `Budget → Expenses` is a single unsplit pipe (consistent shape month-to-month).
+- **Surplus, not Savings.** The residual `income − expenses` (when positive) is labelled **"Ylijäämä"** — the symmetric mirror of "Alijäämä". It makes no claim the money was saved, only that it wasn't spent.
+- **Full depth to individual expenses.** `trunk → Expenses → top category → … → leaf category → individual expense`. Individual expenses are terminal leaf nodes carrying their own name.
 - **Mixed children allowed.** A category may emit flows to both subcategory nodes *and* directly-attached expense nodes (`expenses.category_id` may reference any category, not only leaves).
 - **No collapsing.** Single-child chains are not collapsed — every category and every expense is its own node.
 
@@ -40,33 +42,34 @@ Side gig  ─┘                 │            └─► Utilities ─► Elect
 | `income` | 0..N | one per income row with amount > 0; neutral color |
 | `unspecified-income` | 0..1 | only when there is no income (see §3) |
 | `deficit` | 0..1 | only in a deficit (see §3) |
-| `budget` | 1 | the trunk (labelled "Expenses"); absent only for an empty graph |
+| `budget` | 1 | the trunk (labelled "Budjetti"); absent only for an empty graph |
+| `expenses-total` | 0..1 | the Expenses aggregate (labelled "Menot"); present whenever total expenses > 0 |
 | `category` | 0..N | one per category with a non-zero subtree total |
 | `expense` | 0..N | one per individual expense with amount > 0 |
-| `savings` | 0..1 | only when savings > 0 |
+| `surplus` | 0..1 | labelled "Ylijäämä"; only when income − expenses > 0 |
 
-Each node also carries a **`depth`** (income=0, trunk=1, top category=2, nested category=parent+1, expense=parentCategory+1, savings=2) used by the layout to size the canvas, and a **`rank`** (pre-order DFS index) used to order columns.
+Each node also carries a **`depth`** (income=0, trunk=1, expenses-total=2, surplus=2, top category=3, nested category=parent+1, expense=parentCategory+1) used by the layout to size the canvas, and a **`rank`** (pre-order DFS index) used to order columns.
 
 ```ts
 type SankeyNodeType =
   | 'income' | 'unspecified-income' | 'deficit'
-  | 'budget' | 'category' | 'expense' | 'savings';
+  | 'budget' | 'expenses-total' | 'category' | 'expense' | 'surplus';
 ```
 
 ---
 
 ## 3. Edge states
 
-Evaluated in this **exact priority order** (first match wins). This resolves income=0 with negative implied savings: it is handled by **No income**, which never runs deficit/savings logic.
+Evaluated in this **exact priority order** (first match wins). This resolves income=0 with negative implied surplus: it is handled by **No income**, which never runs deficit/surplus logic.
 
 | # | State | Condition (none above matched) | Shape |
 |---|---|---|---|
 | 1 | **Empty** | no income **and** no expenses | empty graph → component renders "No data" |
-| 2 | **No income** | no income (some expenses) | `Unspecified Income → trunk → categories`. No Savings, no Deficit; the source equals total expenses |
-| 3 | **No expenses** | income, no expenses | `income → trunk → Savings` (everything saved) |
-| 4 | **Deficit** | `expenses > income` | `Deficit → trunk` alongside income; no Savings. Deficit value = expenses − income |
-| 5 | **Break-even** | `expenses == income` | no Savings, no Deficit |
-| 6 | **Normal** | `income > expenses` | income → trunk → categories + Savings |
+| 2 | **No income** | no income (some expenses) | `Unspecified Income → trunk → Expenses → categories`. No Surplus, no Deficit; the source equals total expenses |
+| 3 | **No expenses** | income, no expenses | `income → trunk → Surplus` (no Expenses node — zero-value rule) |
+| 4 | **Deficit** | `expenses > income` | `Deficit → trunk` alongside income; `trunk → Expenses` is one unsplit pipe; no Surplus. Deficit value = expenses − income |
+| 5 | **Break-even** | `expenses == income` | no Surplus, no Deficit; `trunk → Expenses` is one unsplit pipe |
+| 6 | **Normal** | `income > expenses` | income → trunk → { Expenses → categories, Surplus } |
 
 Deficit and Unspecified-Income source nodes render **dashed**.
 
@@ -87,8 +90,8 @@ The **builder** assigns every node a global **pre-order DFS `rank`**:
 1. DFS from the trunk, fixing child order at each node.
 2. **Children sorted value-descending** at every level. Subcategories and directly-attached expenses are interleaved in one value-sorted list (mixed children).
 3. **Tie-break:** equal-value siblings by **name ascending (locale-aware), then `id` ascending** — fully deterministic (the no-crossing guard test depends on it).
-4. **Savings pinned bottom** of trunk outflows (visited last → highest rank); **Deficit pinned bottom** of income sources.
-5. Income sources ranked first (value-desc), then the trunk, then the expense subtree in DFS order.
+4. **Surplus pinned bottom** of trunk outflows (visited last → highest rank), below the Expenses aggregate; **Deficit pinned bottom** of income sources.
+5. Income sources ranked first (value-desc), then the trunk, then the Expenses aggregate and its subtree in DFS order.
 
 The **layout** passes `nodeSort: (a, b) => a.rank - b.rank` to d3-sankey. Because a subtree's ranks are contiguous, each subtree occupies one **contiguous vertical band** per column → no flow ever crosses. This is the invariant the rewrite rests on.
 
@@ -135,7 +138,7 @@ The **layout** passes `nodeSort: (a, b) => a.rank - b.rank` to d3-sankey. Becaus
 - **Each top-level category gets a hue** from a fixed 8-hue palette, by DFS order among top categories; cycles `% 8` past 8 categories:
   `['#3b82f6','#8b5cf6','#ec4899','#f97316','#14b8a6','#eab308','#06b6d4','#a855f7']`
 - The hue **propagates down the whole subtree** (descendant categories, expenses, and their links).
-- **Fixed-role colors:** income + trunk neutral `#64748b`; `unspecified-income` amber `#f59e0b`; `savings` green `#22c55e`; `deficit` red `#ef4444`.
+- **Fixed-role colors:** income + trunk + Expenses aggregate neutral `#64748b`; `unspecified-income` amber `#f59e0b`; `surplus` green `#22c55e`; `deficit` red `#ef4444`.
 - **Link color = the non-trunk endpoint's color:** `link.color = (target is trunk) ? source.color : target.color`. Rendered at `strokeOpacity` 0.35; node rects at `fillOpacity` 0.85 (dashed sources 0.45).
 
 ---
@@ -161,7 +164,7 @@ Reused utilities: `sumTree` (subtree totals), `formatEurCents` (whole-euro `fi-F
 
 `sankey-builder.test.ts` + `sankey-layout.test.ts`.
 
-**Builder:** all six edge states (priority order; no-income → neither savings nor deficit); Savings pinned last among outflows / Deficit last among inflows; value-desc sort with name/id tie-break; DFS leaf order; value conservation (Σ inflows == Σ outflows); mixed children; zero-value exclusion; `depth` assignment per tree level; palette hue propagates down subtree.
+**Builder:** all six edge states (priority order; no-income → neither surplus nor deficit); Expenses aggregate present whenever expenses > 0 (including deficit/break-even); Surplus pinned last among outflows / Deficit last among inflows; value-desc sort with name/id tie-break; DFS leaf order; value conservation (Σ inflows == Σ outflows); mixed children; zero-value exclusion; `depth` assignment per tree level; palette hue propagates down subtree.
 
 **Layout:**
 - **No-crossing guard:** within each column (grouped by `x0`), vertical order (`y0` asc) == DFS `rank` order.

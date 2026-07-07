@@ -6,9 +6,10 @@ export type SankeyNodeType =
   | 'unspecified-income'
   | 'deficit'
   | 'budget'
+  | 'expenses-total'
   | 'category'
   | 'expense'
-  | 'savings';
+  | 'surplus';
 
 export interface SankeyNode {
   id: string;
@@ -17,7 +18,7 @@ export interface SankeyNode {
   type: SankeyNodeType;
   /** Subtree total in EUR cents (sumTree semantics). */
   value: number;
-  /** Tree depth: income=0, budget=1, top category=2, deeper=parent+1, expense=parentCat+1, savings=2. Used to size height to the densest column. */
+  /** Tree depth: income=0, budget=1, expenses-total=2, surplus=2, top category=3, deeper=parent+1, expense=parentCat+1. Used to size height to the densest column. */
   depth: number;
   /** Fill/stroke color. Top-category hue propagates down its subtree. */
   color: string;
@@ -38,9 +39,9 @@ export interface SankeyGraph {
 }
 
 // Fixed-role colors (carried over from the previous renderer).
-const NEUTRAL = '#64748b'; // income sources + budget trunk
+const NEUTRAL = '#64748b'; // income sources + budget trunk + expenses aggregate
 const UNSPECIFIED = '#f59e0b';
-const SAVINGS = '#22c55e';
+const SURPLUS = '#22c55e';
 const DEFICIT = '#ef4444';
 
 // 8-hue categorical palette; top categories cycle through it by DFS order.
@@ -60,10 +61,14 @@ type Exp = { id: number; name: string; amount: number; category_id: number };
 type Inc = { id: number; name: string; amount: number };
 
 const BUDGET = 'budget';
+const EXPENSES = 'expenses';
 
 /**
  * Build the Sankey graph for the single-trunk "Budget" model:
- *   income sources → Budget → expense categories (→ subcategories → individual expenses) + Savings.
+ *   income sources → Budget → { Expenses → categories (→ subcategories → individual expenses), Surplus }.
+ *
+ * Expenses and Surplus are siblings under the Budget trunk; Expenses aggregates the
+ * whole category tree, Surplus is the unallocated residual (income − expenses).
  *
  * Nodes carry a global pre-order DFS `rank`; the layout sorts each column by it so
  * every subtree occupies one contiguous band and no flow lines cross.
@@ -120,17 +125,23 @@ export function buildSankeyGraph(incomes: Inc[], expenses: Exp[], categories: Ca
   }
 
   // Deficit source pinned to the bottom of the income column (state 4).
-  const savings = totalIncome - totalExpenses;
-  const isDeficit = !isNoIncome && savings < 0;
+  const surplus = totalIncome - totalExpenses;
+  const isDeficit = !isNoIncome && surplus < 0;
   if (isDeficit) {
-    nodes.push({ id: 'deficit', name: t.sankeyDeficit, type: 'deficit', value: -savings, depth: 0, color: DEFICIT, rank: rank++ });
-    links.push({ source: 'deficit', target: BUDGET, value: -savings, color: DEFICIT });
+    nodes.push({ id: 'deficit', name: t.sankeyDeficit, type: 'deficit', value: -surplus, depth: 0, color: DEFICIT, rank: rank++ });
+    links.push({ source: 'deficit', target: BUDGET, value: -surplus, color: DEFICIT });
   }
 
-  // --- Budget trunk (column 1, alone); labelled "Expenses" in the UI ---
-  nodes.push({ id: BUDGET, name: t.expenses, type: 'budget', value: Math.max(totalIncome, totalExpenses), depth: 1, color: NEUTRAL, rank: rank++ });
+  // --- Budget trunk (column 1, alone) ---
+  nodes.push({ id: BUDGET, name: t.sankeyBudget, type: 'budget', value: Math.max(totalIncome, totalExpenses), depth: 1, color: NEUTRAL, rank: rank++ });
 
-  // --- Expense subtree, DFS from Budget over top categories (value-desc) ---
+  // --- Expenses aggregate (column 2) — sibling of Surplus under the trunk ---
+  if (totalExpenses > 0) {
+    nodes.push({ id: EXPENSES, name: t.expenses, type: 'expenses-total', value: totalExpenses, depth: 2, color: NEUTRAL, rank: rank++ });
+    links.push({ source: BUDGET, target: EXPENSES, value: totalExpenses, color: NEUTRAL });
+  }
+
+  // --- Expense subtree, DFS from Expenses over top categories (value-desc) ---
   const topCats = categories
     .filter((c) => c.parent_id === null && (catTotals.get(c.id) ?? 0) > 0)
     .map((c) => ({ id: c.id, name: c.name, value: catTotals.get(c.id) ?? 0 }))
@@ -138,14 +149,14 @@ export function buildSankeyGraph(incomes: Inc[], expenses: Exp[], categories: Ca
 
   topCats.forEach((tc, idx) => {
     const groupColor = PALETTE[idx % PALETTE.length];
-    links.push({ source: BUDGET, target: `cat-${tc.id}`, value: tc.value, color: groupColor });
-    visitCategory(tc.id, groupColor, 2);
+    links.push({ source: EXPENSES, target: `cat-${tc.id}`, value: tc.value, color: groupColor });
+    visitCategory(tc.id, groupColor, 3);
   });
 
-  // --- Savings outflow, pinned to the bottom of Budget's outflows (state 6) ---
-  if (!isNoIncome && savings > 0) {
-    nodes.push({ id: 'savings', name: t.sankeySavings, type: 'savings', value: savings, depth: 2, color: SAVINGS, rank: rank++ });
-    links.push({ source: BUDGET, target: 'savings', value: savings, color: SAVINGS });
+  // --- Surplus outflow, pinned to the bottom of Budget's outflows (state 6) ---
+  if (!isNoIncome && surplus > 0) {
+    nodes.push({ id: 'surplus', name: t.sankeySurplus, type: 'surplus', value: surplus, depth: 2, color: SURPLUS, rank: rank++ });
+    links.push({ source: BUDGET, target: 'surplus', value: surplus, color: SURPLUS });
   }
 
   return { nodes, links };

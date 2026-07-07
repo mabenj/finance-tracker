@@ -16,29 +16,35 @@ const byId = (g: ReturnType<typeof buildSankeyGraph>, id: string) =>
   g.nodes.find((n) => n.id === id);
 
 describe('buildSankeyGraph — topology', () => {
-  test('normal case: income → Budget → categories + Savings', () => {
+  test('normal case: income → Budget → { Expenses → categories, Surplus }', () => {
     const incomes = [salary, bonus]; // 500000
     const categories = [catFood, catTransport];
     const expenses = [
       { id: 1, category_id: 1, name: 'Groceries', amount: 100000 },
       { id: 2, category_id: 1, name: 'Restaurant', amount: 50000 },
       { id: 3, category_id: 2, name: 'Gas', amount: 80000 },
-    ]; // 230000, savings 270000
+    ]; // 230000, surplus 270000
 
     const g = buildSankeyGraph(incomes, expenses, categories);
 
     expect(byId(g, 'budget')).toBeDefined();
-    expect(byId(g, 'savings')).toBeDefined();
+    expect(byId(g, 'expenses')).toBeDefined();
+    expect(byId(g, 'surplus')).toBeDefined();
     expect(byId(g, 'deficit')).toBeUndefined();
     expect(byId(g, 'unspecified')).toBeUndefined();
 
-    // income → budget (x2), budget → Food, budget → Transport, budget → Savings,
-    // Food → Groceries, Food → Restaurant, Transport → Gas
-    expect(g.links).toHaveLength(8);
+    // Expenses and Surplus are siblings: both flow out of the Budget trunk.
+    expect(g.links.find((l) => l.source === 'budget' && l.target === 'expenses')).toBeDefined();
+    expect(g.links.find((l) => l.source === 'budget' && l.target === 'surplus')).toBeDefined();
+
+    // income → budget (x2), budget → Expenses, budget → Surplus,
+    // Expenses → Food, Expenses → Transport, Food → Groceries, Food → Restaurant, Transport → Gas
+    expect(g.links).toHaveLength(9);
     expect(g.links.every((l) => l.value > 0)).toBe(true);
 
-    const savingsLink = g.links.find((l) => l.target === 'savings');
-    expect(savingsLink!.value).toBe(270000);
+    expect(byId(g, 'expenses')!.value).toBe(230000);
+    const surplusLink = g.links.find((l) => l.target === 'surplus');
+    expect(surplusLink!.value).toBe(270000);
   });
 
   test('value conservation: Σ Budget inflows == Σ Budget outflows', () => {
@@ -56,34 +62,35 @@ describe('buildSankeyGraph — topology', () => {
     expect(inflow).toBe(500000);
   });
 
-  test('Savings is pinned last (highest rank) among Budget outflows', () => {
+  test('Surplus is pinned last (highest rank) among Budget outflows', () => {
     const g = buildSankeyGraph(
       [salary, bonus],
       [{ id: 1, category_id: 1, name: 'Groceries', amount: 100000 }],
       [catFood, catTransport]
     );
-    const savings = byId(g, 'savings')!;
+    const surplus = byId(g, 'surplus')!;
     const outflowTargets = g.links
       .filter((l) => l.source === 'budget')
       .map((l) => byId(g, l.target)!);
-    const maxNonSavingsRank = Math.max(
-      ...outflowTargets.filter((n) => n.type !== 'savings').map((n) => n.rank)
+    const maxNonSurplusRank = Math.max(
+      ...outflowTargets.filter((n) => n.type !== 'surplus').map((n) => n.rank)
     );
-    expect(savings.rank).toBeGreaterThan(maxNonSavingsRank);
+    expect(surplus.rank).toBeGreaterThan(maxNonSurplusRank);
   });
 
-  test('no expenses: income → Budget → Savings, no category nodes', () => {
+  test('no expenses: income → Budget → Surplus, no Expenses node, no category nodes', () => {
     const g = buildSankeyGraph([salary, bonus], [], []);
     expect(byId(g, 'budget')).toBeDefined();
-    expect(byId(g, 'savings')).toBeDefined();
+    expect(byId(g, 'surplus')).toBeDefined();
+    expect(byId(g, 'expenses')).toBeUndefined();
     expect(g.nodes.some((n) => n.type === 'category')).toBe(false);
-    const savingsFlow = g.links
-      .filter((l) => l.target === 'savings')
+    const surplusFlow = g.links
+      .filter((l) => l.target === 'surplus')
       .reduce((s, l) => s + l.value, 0);
-    expect(savingsFlow).toBe(500000);
+    expect(surplusFlow).toBe(500000);
   });
 
-  test('no income: Unspecified Income → Budget → categories, no Savings, no Deficit', () => {
+  test('no income: Unspecified Income → Budget → Expenses → categories, no Surplus, no Deficit', () => {
     const g = buildSankeyGraph(
       [],
       [{ id: 1, category_id: 1, name: 'Groceries', amount: 100000 }],
@@ -92,22 +99,26 @@ describe('buildSankeyGraph — topology', () => {
     const unspecified = g.nodes.filter((n) => n.type === 'unspecified-income');
     expect(unspecified).toHaveLength(1);
     expect(unspecified[0].value).toBe(100000);
-    expect(byId(g, 'savings')).toBeUndefined();
+    expect(byId(g, 'surplus')).toBeUndefined();
     expect(g.nodes.some((n) => n.type === 'deficit')).toBe(false);
     expect(g.links.find((l) => l.source === 'unspecified' && l.target === 'budget')).toBeDefined();
+    expect(g.links.find((l) => l.source === 'budget' && l.target === 'expenses')).toBeDefined();
   });
 
-  test('deficit: Deficit → Budget (pinned last among inflows), no Savings', () => {
+  test('deficit: Deficit → Budget (pinned last among inflows), Expenses present, no Surplus', () => {
     const g = buildSankeyGraph(
       [{ id: 1, name: 'Salary', amount: 100000 }],
       [{ id: 1, category_id: 1, name: 'Groceries', amount: 150000 }],
       [catFood]
     );
-    expect(byId(g, 'savings')).toBeUndefined();
+    expect(byId(g, 'surplus')).toBeUndefined();
     const deficit = g.nodes.find((n) => n.type === 'deficit');
     expect(deficit).toBeDefined();
     const deficitLink = g.links.find((l) => l.source === 'deficit' && l.target === 'budget');
     expect(deficitLink!.value).toBe(50000);
+
+    // Expenses appears even without a Surplus sibling (consistent shape month-to-month).
+    expect(byId(g, 'expenses')!.value).toBe(150000);
 
     const inflowSources = g.links
       .filter((l) => l.target === 'budget')
@@ -119,17 +130,18 @@ describe('buildSankeyGraph — topology', () => {
     expect(g.links.every((l) => l.value > 0)).toBe(true);
   });
 
-  test('break-even: no Savings, no Deficit, Budget present', () => {
+  test('break-even: no Surplus, no Deficit, Budget and Expenses present', () => {
     const g = buildSankeyGraph(
       [{ id: 1, name: 'Salary', amount: 100000 }],
       [{ id: 1, category_id: 1, name: 'Groceries', amount: 100000 }],
       [catFood]
     );
-    expect(byId(g, 'savings')).toBeUndefined();
+    expect(byId(g, 'surplus')).toBeUndefined();
     expect(g.nodes.some((n) => n.type === 'deficit')).toBe(false);
     expect(byId(g, 'budget')).toBeDefined();
-    // income → budget, budget → Food, Food → Groceries
-    expect(g.links).toHaveLength(3);
+    expect(byId(g, 'expenses')).toBeDefined();
+    // income → budget, budget → Expenses, Expenses → Food, Food → Groceries
+    expect(g.links).toHaveLength(4);
   });
 
   test('3-level nested category chain', () => {
@@ -140,7 +152,7 @@ describe('buildSankeyGraph — topology', () => {
     );
     const categoryNodes = g.nodes.filter((n) => n.type === 'category');
     expect(categoryNodes).toHaveLength(3);
-    expect(g.links.find((l) => l.source === 'budget' && l.target === 'cat-10')).toBeDefined();
+    expect(g.links.find((l) => l.source === 'expenses' && l.target === 'cat-10')).toBeDefined();
     expect(g.links.find((l) => l.source === 'cat-10' && l.target === 'cat-11')).toBeDefined();
     expect(g.links.find((l) => l.source === 'cat-11' && l.target === 'cat-12')).toBeDefined();
     expect(g.links.find((l) => l.source === 'cat-12' && l.target === 'exp-1')).toBeDefined();
@@ -226,7 +238,7 @@ describe('buildSankeyGraph — ordering & detail', () => {
     expect(g.links.every((l) => l.value > 0)).toBe(true);
   });
 
-  test('depth is assigned per tree level (income 0, budget 1, cat 2, nested+1, expense parent+1, savings 2)', () => {
+  test('depth is assigned per tree level (income 0, budget 1, expenses/surplus 2, cat 3, nested+1, expense parent+1)', () => {
     const cats = [
       { id: 10, parent_id: null, name: 'Housing' },
       { id: 11, parent_id: 10, name: 'Utilities' },
@@ -242,11 +254,12 @@ describe('buildSankeyGraph — ordering & detail', () => {
     const depthOf = (id: string) => g.nodes.find((n) => n.id === id)!.depth;
     expect(depthOf('income-1')).toBe(0);
     expect(depthOf('budget')).toBe(1);
-    expect(depthOf('cat-10')).toBe(2); // Housing (top)
-    expect(depthOf('cat-11')).toBe(3); // Utilities (nested)
-    expect(depthOf('exp-2')).toBe(3); // Rent, attached to Housing (depth 2) → 3
-    expect(depthOf('exp-1')).toBe(4); // Bill, attached to Utilities (depth 3) → 4
-    expect(depthOf('savings')).toBe(2); // Savings hangs off Budget
+    expect(depthOf('expenses')).toBe(2); // Expenses aggregate hangs off Budget
+    expect(depthOf('surplus')).toBe(2); // Surplus is its sibling
+    expect(depthOf('cat-10')).toBe(3); // Housing (top)
+    expect(depthOf('cat-11')).toBe(4); // Utilities (nested)
+    expect(depthOf('exp-2')).toBe(4); // Rent, attached to Housing (depth 3) → 4
+    expect(depthOf('exp-1')).toBe(5); // Bill, attached to Utilities (depth 4) → 5
   });
 
   test('top categories cycle through the 8-hue palette; subtree inherits the hue', () => {

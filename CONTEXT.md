@@ -25,6 +25,13 @@ _Avoid_: static
 A recurring expense or income carried forward at €0, to be filled in as the month unfolds (e.g. groceries, restaurants, freelance income).
 _Avoid_: dynamic, zero-start
 
+**Surplus (Ylijäämä)**:
+The positive residual of a snapshot: income minus expenses when income is greater. Says nothing about where the money went — it is unallocated, not necessarily saved.
+_Avoid_: savings, säästöt
+
+**Deficit (Alijäämä)**:
+The negative residual of a snapshot: expenses minus income when expenses are greater. The exact mirror of surplus.
+
 **Carried amount**:
 The amount an expense or income had in the previous snapshot at the moment it was carried forward; absent on items created by hand within the month.
 _Avoid_: ghost value, previous amount
