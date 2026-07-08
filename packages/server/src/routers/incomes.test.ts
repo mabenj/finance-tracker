@@ -298,6 +298,72 @@ describe('incomes router', () => {
       })
     ).rejects.toThrow();
   });
+
+  // ── Carried amount: server-managed, read-only to the client ────────────────
+
+  test('a hand-created income has a null carried_amount and reads it back', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+
+    const created = await caller.incomes.upsert({
+      snapshotId: snap.id,
+      name: 'Freelance',
+      amount: 80000,
+      category: 'Muu',
+      recurrence: 'variable',
+    });
+    expect(created.carried_amount).toBeNull();
+
+    const full = await caller.snapshots.get({ id: snap.id });
+    expect(full.incomes[0].carried_amount).toBeNull();
+  });
+
+  test('upsert ignores a client-supplied carried_amount', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+
+    const created = await caller.incomes.upsert({
+      snapshotId: snap.id,
+      name: 'Freelance',
+      amount: 80000,
+      category: 'Muu',
+      recurrence: 'variable',
+      // @ts-expect-error — carried_amount is server-managed and not part of the input
+      carried_amount: 999999,
+    });
+    expect(created.carried_amount).toBeNull();
+  });
+
+  test('a carried income keeps its carried_amount through edits', async () => {
+    const { caller } = makeTestCaller();
+    const jan = await caller.snapshots.create({ year: 2026, month: 1 });
+    await caller.incomes.upsert({
+      snapshotId: jan.id,
+      name: 'Freelance',
+      amount: 80000,
+      category: 'Muu',
+      recurrence: 'variable',
+    });
+
+    // Feb carry-forward stamps carried_amount = 80000, amount 0.
+    const feb = await caller.snapshots.create({ year: 2026, month: 2 });
+    const febFull = await caller.snapshots.get({ id: feb.id });
+    const carried = febFull.incomes[0];
+    expect(carried.carried_amount).toBe(80000);
+
+    const updated = await caller.incomes.upsert({
+      id: carried.id,
+      snapshotId: feb.id,
+      name: 'Consulting',
+      amount: 30000,
+      category: 'Muu',
+      recurrence: 'fixed',
+    });
+    expect(updated.carried_amount).toBe(80000);
+    expect(updated.name).toBe('Consulting');
+    expect(updated.amount).toBe(30000);
+    expect(updated.recurrence).toBe('fixed');
+  });
 });
 
 describe('incomes reorder', () => {

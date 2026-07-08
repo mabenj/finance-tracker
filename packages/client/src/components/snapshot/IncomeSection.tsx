@@ -3,7 +3,7 @@ import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
 import { centsToEuroStr, eurosToCents, sanitizeEuroInput } from '../../lib/currency';
 import { getIncomeCategories } from '../../lib/income-autocomplete';
-import { RecurrenceControl, RecurrenceMarker, type Recurrence } from './RecurrenceControl';
+import { RecurrenceControl, RecurrenceMarker, CarriedHint, type Recurrence } from './RecurrenceControl';
 import { ReorderButtons } from './ReorderButtons';
 import { t } from '../../lib/strings';
 import { Button } from '../ui/Button';
@@ -18,6 +18,7 @@ interface Income {
   amount: number;
   category: string;
   recurrence: Recurrence;
+  carried_amount: number | null;
 }
 
 interface Props {
@@ -115,7 +116,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
   const th = 'py-2 px-3 font-medium text-xs uppercase tracking-wide text-ink-muted';
   const td = 'py-2 px-3';
 
-  function renderEditRow(id?: number) {
+  function renderEditRow(id?: number, carriedAmount: number | null = null) {
     const save = () => saveRow(id);
     return (
       <tr key={id ?? 'new'} className="border-b border-rule bg-accent-wash">
@@ -123,7 +124,10 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
           <input className="field" value={row.name} onChange={field('name')} onKeyDown={onKey(save)} autoFocus placeholder={t.incomeName} />
         </td>
         <td className="py-1.5 px-3">
-          <input type="number" step="1" min="0" className="field text-right" value={row.amount} onChange={currencyField('amount')} onKeyDown={onKey(save)} aria-label={t.amount} />
+          <div className="flex flex-col items-end gap-1">
+            <input type="number" step="1" min="0" className="field text-right" value={row.amount} onChange={currencyField('amount')} onKeyDown={onKey(save)} aria-label={t.amount} />
+            <CarriedHint recurrence={row.recurrence} carriedAmount={carriedAmount} />
+          </div>
         </td>
         <td className="py-1.5 px-3">
           <input className="field" list={datalistId} value={row.category} onChange={field('category')} onKeyDown={onKey(save)} placeholder={t.category} />
@@ -187,12 +191,15 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
             <tbody>
               {incomes.map((inc, index) =>
                 editingId === inc.id ? (
-                  renderEditRow(inc.id)
+                  renderEditRow(inc.id, inc.carried_amount)
                 ) : (
                   <tr key={inc.id} className="border-b border-rule last:border-0 hover:bg-paper">
                     <td className={`${td} text-ink`}>{inc.name}</td>
                     <td className={`${td} text-right`}>
-                      <Figure cents={inc.amount} />
+                      <div className="flex flex-col items-end">
+                        <Figure cents={inc.amount} />
+                        <CarriedHint recurrence={inc.recurrence} carriedAmount={inc.carried_amount} />
+                      </div>
                     </td>
                     <td className={`${td} text-ink-muted`}>{inc.category}</td>
                     <td className={`${td} text-center`}>

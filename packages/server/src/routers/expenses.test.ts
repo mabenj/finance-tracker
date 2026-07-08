@@ -335,6 +335,80 @@ describe('expenses router', () => {
       })
     ).rejects.toThrow();
   });
+
+  // ── Carried amount: server-managed, read-only to the client ────────────────
+
+  test('a hand-created expense has a null carried_amount and reads it back', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const cat = await caller.categories.create({ snapshotId: snap.id, name: 'Groceries' });
+
+    const created = await caller.expenses.upsert({
+      snapshotId: snap.id,
+      name: 'Food',
+      amount: 12000,
+      categoryId: cat.id,
+      recurrence: 'variable',
+    });
+    expect(created.carried_amount).toBeNull();
+
+    const full = await caller.snapshots.get({ id: snap.id });
+    expect(full.expenses[0].carried_amount).toBeNull();
+  });
+
+  test('upsert ignores a client-supplied carried_amount', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const cat = await caller.categories.create({ snapshotId: snap.id, name: 'Groceries' });
+
+    const created = await caller.expenses.upsert({
+      snapshotId: snap.id,
+      name: 'Food',
+      amount: 12000,
+      categoryId: cat.id,
+      recurrence: 'variable',
+      // @ts-expect-error — carried_amount is server-managed and not part of the input
+      carried_amount: 999999,
+    });
+    expect(created.carried_amount).toBeNull();
+  });
+
+  test('a carried expense keeps its carried_amount through edits (rename, amount, category, kind)', async () => {
+    const { caller } = makeTestCaller();
+    const jan = await caller.snapshots.create({ year: 2026, month: 1 });
+    const cat = await caller.categories.create({ snapshotId: jan.id, name: 'Groceries' });
+    await caller.expenses.upsert({
+      snapshotId: jan.id,
+      name: 'Food',
+      amount: 74000,
+      categoryId: cat.id,
+      recurrence: 'variable',
+    });
+
+    // Feb carry-forward stamps carried_amount = 74000, amount 0.
+    const feb = await caller.snapshots.create({ year: 2026, month: 2 });
+    const febFull = await caller.snapshots.get({ id: feb.id });
+    const carried = febFull.expenses[0];
+    const otherCat = await caller.categories.create({ snapshotId: feb.id, name: 'Elsewhere' });
+    expect(carried.carried_amount).toBe(74000);
+    expect(carried.amount).toBe(0); // variable carries in at €0
+
+
+
+    // Rename + change amount + re-parent + flip the kind: none of it touches the stamp.
+    const updated = await caller.expenses.upsert({
+      id: carried.id,
+      snapshotId: feb.id,
+      name: 'Groceries renamed',
+      amount: 20000,
+      categoryId: otherCat.id,
+      recurrence: 'fixed',
+    });
+    expect(updated.carried_amount).toBe(74000);
+    expect(updated.name).toBe('Groceries renamed');
+    expect(updated.amount).toBe(20000);
+    expect(updated.recurrence).toBe('fixed');
+  });
 });
 
 describe('expenses reorder', () => {

@@ -29,6 +29,7 @@ interface IncomeRow {
   category: string;
   recurrence: Recurrence;
   position: number;
+  carried_amount: number | null;
 }
 
 interface CategoryRow {
@@ -45,6 +46,7 @@ interface ExpenseRow {
   category_id: number;
   recurrence: Recurrence;
   position: number;
+  carried_amount: number | null;
 }
 
 
@@ -88,7 +90,7 @@ export const snapshotsRouter = router({
 
       const incomes = ctx.db
         .query<IncomeRow, [number]>(
-          'SELECT id, name, amount, category, recurrence, position FROM incomes WHERE snapshot_id = ? ORDER BY position, id'
+          'SELECT id, name, amount, category, recurrence, position, carried_amount FROM incomes WHERE snapshot_id = ? ORDER BY position, id'
         )
         .all(input.id);
 
@@ -100,7 +102,7 @@ export const snapshotsRouter = router({
 
       const expenses = ctx.db
         .query<ExpenseRow, [number]>(
-          'SELECT id, name, amount, category_id, recurrence, position FROM expenses WHERE snapshot_id = ? ORDER BY position, id'
+          'SELECT id, name, amount, category_id, recurrence, position, carried_amount FROM expenses WHERE snapshot_id = ? ORDER BY position, id'
         )
         .all(input.id);
 

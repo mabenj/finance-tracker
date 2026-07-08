@@ -12,12 +12,14 @@ interface ExpenseRow {
   amount: number;
   category_id: number;
   recurrence: Recurrence;
+  // Server-managed: stamped at carry-forward time, read-only to the client.
+  carried_amount: number | null;
 }
 
 function requireExpense(db: Context['db'], id: number, snapshotId: number): ExpenseRow {
   const row = db
     .query<ExpenseRow, [number, number]>(
-      'SELECT id, snapshot_id, name, amount, category_id, recurrence FROM expenses WHERE id = ? AND snapshot_id = ?'
+      'SELECT id, snapshot_id, name, amount, category_id, recurrence, carried_amount FROM expenses WHERE id = ? AND snapshot_id = ?'
     )
     .get(id, snapshotId);
   if (!row) {
@@ -82,7 +84,7 @@ export const expensesRouter = router({
 
         return ctx.db
           .query<ExpenseRow, [number]>(
-            'SELECT id, snapshot_id, name, amount, category_id, recurrence FROM expenses WHERE id = ?'
+            'SELECT id, snapshot_id, name, amount, category_id, recurrence, carried_amount FROM expenses WHERE id = ?'
           )
           .get(id)!;
       } else {
@@ -107,7 +109,7 @@ export const expensesRouter = router({
 
         return ctx.db
           .query<ExpenseRow, [number]>(
-            'SELECT id, snapshot_id, name, amount, category_id, recurrence FROM expenses WHERE id = ?'
+            'SELECT id, snapshot_id, name, amount, category_id, recurrence, carried_amount FROM expenses WHERE id = ?'
           )
           .get(newId)!;
       }

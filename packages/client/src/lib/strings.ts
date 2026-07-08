@@ -29,6 +29,9 @@ export const t = {
   recurrenceVariable: "Muuttuva",
   recurrenceFixedTooltip: "Kiinteä toistuva",
   recurrenceVariableTooltip: "Muuttuva toistuva",
+  // Ghost hint on carried variable rows: "ed. kk" = edellinen kuukausi (last month).
+  carriedHint: (amount: string) => `ed. kk ${amount}`,
+  carriedHintTooltip: "Summa edellisessä kuukausikatsauksessa",
   total: "Yhteensä",
   selectPlaceholder: "— valitse —",
   addNew: "+ Uusi…",

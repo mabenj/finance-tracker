@@ -13,7 +13,7 @@ import {
 import { sumTree } from '../../lib/sum-tree';
 import { cn } from '../../lib/cn';
 import { CategoryPicker } from './CategoryPicker';
-import { RecurrenceControl, RecurrenceMarker, type Recurrence } from './RecurrenceControl';
+import { RecurrenceControl, RecurrenceMarker, CarriedHint, type Recurrence } from './RecurrenceControl';
 import { ReorderButtons } from './ReorderButtons';
 import { t } from '../../lib/strings';
 import { Button } from '../ui/Button';
@@ -36,6 +36,7 @@ interface Expense {
   category_id: number;
   recurrence: Recurrence;
   position: number;
+  carried_amount: number | null;
 }
 
 interface Props {
@@ -231,6 +232,9 @@ function ExpenseRow({
               aria-label={t.amount}
             />
           </div>
+          {/* Ghost hint — keyed off the live kind so it tracks pill changes;
+              right-aligned under the amount input. Renders nothing off-kind. */}
+          <CarriedHint recurrence={recurrence} carriedAmount={expense.carried_amount} className="self-end" />
           {/* Signed adjustment — fold a delta into the amount above */}
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-ink-muted">{t.adjust}</span>
@@ -300,6 +304,7 @@ function ExpenseRow({
         </span>
         {editMode && adjusting ? (
           <span className="ml-4 flex shrink-0 items-center gap-2">
+            <CarriedHint recurrence={expense.recurrence} carriedAmount={expense.carried_amount} />
             <input
               autoFocus
               type="text"
@@ -342,6 +347,7 @@ function ExpenseRow({
           </span>
         ) : (
           <span className="ml-4 flex shrink-0 items-center gap-3">
+            <CarriedHint recurrence={expense.recurrence} carriedAmount={expense.carried_amount} />
             <Figure cents={expense.amount} />
             {editMode && (
               <>

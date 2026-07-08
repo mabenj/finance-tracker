@@ -23,6 +23,7 @@ interface Income {
   amount: number;
   category: string;
   recurrence: Recurrence;
+  carried_amount: number | null;
 }
 
 interface Category {
@@ -39,6 +40,7 @@ interface Expense {
   category_id: number;
   recurrence: Recurrence;
   position: number;
+  carried_amount: number | null;
 }
 
 interface Props {

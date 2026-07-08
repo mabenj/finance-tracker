@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { cn } from '../../lib/cn';
+import { formatEurCents } from '../../lib/currency';
 import { t } from '../../lib/strings';
 
 export type Recurrence = 'none' | 'fixed' | 'variable';
@@ -79,6 +80,31 @@ export function RecurrenceMarker({
     return <span className={cn('text-xs text-ink-muted', className)} title={t.recurrenceVariableTooltip}>↻⁰</span>;
   }
   return emptyDash ? <span className="text-xs text-ink-muted">—</span> : null;
+}
+
+// The "ed. kk" ghost hint: last month's carried amount, shown beside the current
+// figure on variable rows only. Muted ink, never green/red (redesign rule: color
+// only on real figures). Renders nothing unless the row is variable and actually
+// carries an amount — so hand-created rows (null carried amount) and fixed/one-off
+// rows show no hint, and it appears/disappears purely with the current kind.
+export function CarriedHint({
+  recurrence,
+  carriedAmount,
+  className,
+}: {
+  recurrence: Recurrence;
+  carriedAmount: number | null;
+  className?: string;
+}) {
+  if (recurrence !== 'variable' || carriedAmount === null) return null;
+  return (
+    <span
+      className={cn('figure text-xs text-ink-muted', className)}
+      title={t.carriedHintTooltip}
+    >
+      {t.carriedHint(formatEurCents(carriedAmount))}
+    </span>
+  );
 }
 
 function Pill({

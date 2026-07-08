@@ -427,6 +427,82 @@ describe('carryForward', () => {
     expect(freelance.recurrence).toBe('variable');
   });
 
+  // ── Carried amount: stamping at carry-forward time ────────────────────────
+
+  test('stamps carried_amount = source amount on a variable expense (carried at €0)', () => {
+    const db = makeDb();
+    const prevId = insertSnapshot(db, 2026, 1);
+    db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, NULL)', [prevId, 'Groceries']);
+    const cat = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Food', 74000, cat.id, 'variable']);
+
+    const newId = insertSnapshot(db, 2026, 2);
+    carryForward(db, newId, prevId);
+
+    const exp = db.query<{ amount: number; carried_amount: number | null }, [number]>(
+      'SELECT amount, carried_amount FROM expenses WHERE snapshot_id = ?'
+    ).get(newId)!;
+    expect(exp.amount).toBe(0);
+    expect(exp.carried_amount).toBe(74000);
+  });
+
+  test('stamps carried_amount on a fixed expense too (uniform stamping)', () => {
+    const db = makeDb();
+    const prevId = insertSnapshot(db, 2026, 1);
+    db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, NULL)', [prevId, 'Housing']);
+    const cat = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Rent', 120000, cat.id, 'fixed']);
+
+    const newId = insertSnapshot(db, 2026, 2);
+    carryForward(db, newId, prevId);
+
+    const exp = db.query<{ amount: number; carried_amount: number | null }, [number]>(
+      'SELECT amount, carried_amount FROM expenses WHERE snapshot_id = ?'
+    ).get(newId)!;
+    expect(exp.amount).toBe(120000);
+    expect(exp.carried_amount).toBe(120000);
+  });
+
+  test('stamps carried_amount on carried incomes (fixed and variable)', () => {
+    const db = makeDb();
+    const prevId = insertSnapshot(db, 2026, 1);
+    db.run('INSERT INTO incomes (snapshot_id, name, amount, category, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Salary', 500000, 'Palkka', 'fixed']);
+    db.run('INSERT INTO incomes (snapshot_id, name, amount, category, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Freelance', 80000, 'Muu', 'variable']);
+
+    const newId = insertSnapshot(db, 2026, 2);
+    carryForward(db, newId, prevId);
+
+    const rows = db.query<{ name: string; amount: number; carried_amount: number | null }, [number]>(
+      'SELECT name, amount, carried_amount FROM incomes WHERE snapshot_id = ?'
+    ).all(newId);
+    const salary = rows.find((r) => r.name === 'Salary')!;
+    const freelance = rows.find((r) => r.name === 'Freelance')!;
+    expect(salary.carried_amount).toBe(500000);
+    expect(freelance.amount).toBe(0);
+    expect(freelance.carried_amount).toBe(80000);
+  });
+
+  test('carried_amount always reflects the immediately previous month, not the origin', () => {
+    const db = makeDb();
+    const janId = insertSnapshot(db, 2026, 1);
+    db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, NULL)', [janId, 'Groceries']);
+    const cat = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [janId, 'Food', 74000, cat.id, 'variable']);
+
+    const febId = insertSnapshot(db, 2026, 2);
+    carryForward(db, febId, janId);
+    // Feb carried Jan's 74000; the user fills Feb in at 68000.
+    db.run('UPDATE expenses SET amount = 68000 WHERE snapshot_id = ?', [febId]);
+
+    const marId = insertSnapshot(db, 2026, 3);
+    carryForward(db, marId, febId);
+
+    const feb = db.query<{ carried_amount: number | null }, [number]>('SELECT carried_amount FROM expenses WHERE snapshot_id = ?').get(febId)!;
+    const mar = db.query<{ carried_amount: number | null }, [number]>('SELECT carried_amount FROM expenses WHERE snapshot_id = ?').get(marId)!;
+    expect(feb.carried_amount).toBe(74000); // last month (Jan)
+    expect(mar.carried_amount).toBe(68000); // last month (Feb, as filled in)
+  });
+
   test('recurrence kind survives successive carry-forwards (variable stays variable)', () => {
     const db = makeDb();
     const janId = insertSnapshot(db, 2026, 1);

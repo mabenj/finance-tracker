@@ -13,12 +13,14 @@ interface IncomeRow {
   category: string;
   recurrence: Recurrence;
   position: number;
+  // Server-managed: stamped at carry-forward time, read-only to the client.
+  carried_amount: number | null;
 }
 
 function requireIncome(db: Context['db'], id: number, snapshotId: number): IncomeRow {
   const row = db
     .query<IncomeRow, [number, number]>(
-      'SELECT id, snapshot_id, name, amount, category, recurrence, position FROM incomes WHERE id = ? AND snapshot_id = ?'
+      'SELECT id, snapshot_id, name, amount, category, recurrence, position, carried_amount FROM incomes WHERE id = ? AND snapshot_id = ?'
     )
     .get(id, snapshotId);
   if (!row) {
@@ -54,7 +56,7 @@ export const incomesRouter = router({
 
         return ctx.db
           .query<IncomeRow, [number]>(
-            'SELECT id, snapshot_id, name, amount, category, recurrence, position FROM incomes WHERE id = ?'
+            'SELECT id, snapshot_id, name, amount, category, recurrence, position, carried_amount FROM incomes WHERE id = ?'
           )
           .get(id)!;
       } else {
@@ -77,7 +79,7 @@ export const incomesRouter = router({
 
         return ctx.db
           .query<IncomeRow, [number]>(
-            'SELECT id, snapshot_id, name, amount, category, recurrence, position FROM incomes WHERE id = ?'
+            'SELECT id, snapshot_id, name, amount, category, recurrence, position, carried_amount FROM incomes WHERE id = ?'
           )
           .get(newId)!;
       }

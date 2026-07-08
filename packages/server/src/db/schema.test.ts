@@ -15,7 +15,7 @@ const migrationsDir = join(import.meta.dir, 'migrations');
 // Build the pre-migration-3 database state: apply migrations 1 and 2 from their
 // SQL files and record them as applied, so a later runMigrations(db) call runs
 // only migration 3 — exactly the upgrade path a real database follows.
-function makeDbAtMigration2(): Database {
+function makeDbAtMigration(upTo: number): Database {
   const db = new Database(':memory:');
   db.run('PRAGMA foreign_keys = ON');
   db.run(`
@@ -24,7 +24,7 @@ function makeDbAtMigration2(): Database {
       applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     )
   `);
-  for (const id of [1, 2]) {
+  for (let id = 1; id <= upTo; id++) {
     const sql = readFileSync(join(migrationsDir, `migration_${id}.sql`), 'utf-8');
     db.transaction(() => {
       db.exec(sql);
@@ -32,6 +32,10 @@ function makeDbAtMigration2(): Database {
     })();
   }
   return db;
+}
+
+function makeDbAtMigration2(): Database {
+  return makeDbAtMigration(2);
 }
 
 describe('schema', () => {
@@ -218,9 +222,9 @@ describe('migration_3 — tri-state recurrence backfill', () => {
 
   test('records migration 3 as applied', () => {
     const db = makeDbAtMigration2();
-    runMigrations(db);
+    runMigrations(db); // applies every pending migration (3 and onward)
     const ids = db.query<{ id: number }, []>('SELECT id FROM migrations ORDER BY id').all().map((r) => r.id);
-    expect(ids).toEqual([1, 2, 3]);
+    expect(ids).toContain(3);
   });
 
   test('rejects a recurrence value outside the three kinds (CHECK)', () => {
@@ -236,6 +240,65 @@ describe('migration_3 — tri-state recurrence backfill', () => {
     expect(() =>
       db.run('INSERT INTO incomes (snapshot_id, name, amount, category, recurrence) VALUES (?, ?, ?, ?, ?)', [
         snapId, 'Bad', 100, 'x', 'monthly',
+      ])
+    ).toThrow();
+  });
+});
+
+describe('migration_4 — carried_amount column', () => {
+  function seedRow(db: Database): { snapId: number; catId: number } {
+    db.run('INSERT INTO snapshots (year, month) VALUES (2026, 1)');
+    const snapId = Number(db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!.id);
+    db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, NULL)', [snapId, 'Housing']);
+    const catId = Number(db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!.id);
+    return { snapId, catId };
+  }
+
+  test('adds a nullable carried_amount column to both tables', () => {
+    const db = makeDbAtMigration(3);
+    runMigrations(db); // applies only migration 4
+
+    for (const table of ['expenses', 'incomes']) {
+      const col = db
+        .query<{ name: string; notnull: number; dflt_value: unknown }, []>(`PRAGMA table_info(${table})`)
+        .all()
+        .find((c) => c.name === 'carried_amount');
+      expect(col).toBeDefined();
+      expect(col!.notnull).toBe(0); // nullable
+      expect(col!.dflt_value).toBeNull(); // no default → NULL
+    }
+  });
+
+  test('records migration 4 as applied', () => {
+    const db = makeDbAtMigration(3);
+    runMigrations(db);
+    const ids = db.query<{ id: number }, []>('SELECT id FROM migrations ORDER BY id').all().map((r) => r.id);
+    expect(ids).toEqual([1, 2, 3, 4]);
+  });
+
+  test('rows without a carried_amount read back null', () => {
+    const db = makeDb();
+    const { snapId, catId } = seedRow(db);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [snapId, 'Rent', 100000, catId, 'none']);
+    db.run('INSERT INTO incomes (snapshot_id, name, amount, category, recurrence) VALUES (?, ?, ?, ?, ?)', [snapId, 'Salary', 500000, 'Palkka', 'none']);
+
+    const exp = db.query<{ carried_amount: number | null }, []>('SELECT carried_amount FROM expenses').get()!;
+    const inc = db.query<{ carried_amount: number | null }, []>('SELECT carried_amount FROM incomes').get()!;
+    expect(exp.carried_amount).toBeNull();
+    expect(inc.carried_amount).toBeNull();
+  });
+
+  test('rejects a negative carried_amount via CHECK', () => {
+    const db = makeDb();
+    const { snapId, catId } = seedRow(db);
+    expect(() =>
+      db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence, carried_amount) VALUES (?, ?, ?, ?, ?, ?)', [
+        snapId, 'Bad', 100, catId, 'none', -1,
+      ])
+    ).toThrow();
+    expect(() =>
+      db.run('INSERT INTO incomes (snapshot_id, name, amount, category, recurrence, carried_amount) VALUES (?, ?, ?, ?, ?, ?)', [
+        snapId, 'Bad', 100, 'x', 'none', -1,
       ])
     ).toThrow();
   });

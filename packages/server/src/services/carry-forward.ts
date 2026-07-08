@@ -138,7 +138,7 @@ export function carryForward(
     .all(previousSnapshotId);
 
   const insertExpense = db.prepare(
-    'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence, position) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence, position, carried_amount) VALUES (?, ?, ?, ?, ?, ?, ?)'
   );
 
   const nextExpensePos = new Map<number, number>();
@@ -148,7 +148,9 @@ export function carryForward(
     const pos = nextExpensePos.get(newCategoryId) ?? 0;
     nextExpensePos.set(newCategoryId, pos + 1);
     const amount = exp.recurrence === 'variable' ? 0 : exp.amount;
-    insertExpense.run(newSnapshotId, exp.name, amount, newCategoryId, exp.recurrence, pos);
+    // Stamp the source amount uniformly (fixed and variable alike) so the copy
+    // stays unconditional; the ghost hint reads it only for variable rows.
+    insertExpense.run(newSnapshotId, exp.name, amount, newCategoryId, exp.recurrence, pos, exp.amount);
   }
 
   // Step 4: Copy recurring incomes, re-packing positions contiguously. As with
@@ -160,11 +162,12 @@ export function carryForward(
     .all(previousSnapshotId);
 
   const insertIncome = db.prepare(
-    'INSERT INTO incomes (snapshot_id, name, amount, category, recurrence, position) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO incomes (snapshot_id, name, amount, category, recurrence, position, carried_amount) VALUES (?, ?, ?, ?, ?, ?, ?)'
   );
 
   recurringIncomes.forEach((inc, index) => {
     const amount = inc.recurrence === 'variable' ? 0 : inc.amount;
-    insertIncome.run(newSnapshotId, inc.name, amount, inc.category, inc.recurrence, index);
+    // Same as expenses: stamp the source amount on every carried income.
+    insertIncome.run(newSnapshotId, inc.name, amount, inc.category, inc.recurrence, index, inc.amount);
   });
 }
