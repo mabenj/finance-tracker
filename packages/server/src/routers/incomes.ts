@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, publicProcedure, TRPCError } from '../trpc';
-import { trimmedText, eurCents } from '../lib/validators';
+import { trimmedText, eurCents, recurrence, type Recurrence } from '../lib/validators';
 import { touchSnapshot } from '../lib/touch-snapshot';
 import { reorderWithinScope } from '../lib/reorder';
 import type { Context } from '../trpc';
@@ -11,14 +11,14 @@ interface IncomeRow {
   name: string;
   amount: number;
   category: string;
-  recurring: number;
+  recurrence: Recurrence;
   position: number;
 }
 
 function requireIncome(db: Context['db'], id: number, snapshotId: number): IncomeRow {
   const row = db
     .query<IncomeRow, [number, number]>(
-      'SELECT id, snapshot_id, name, amount, category, recurring, position FROM incomes WHERE id = ? AND snapshot_id = ?'
+      'SELECT id, snapshot_id, name, amount, category, recurrence, position FROM incomes WHERE id = ? AND snapshot_id = ?'
     )
     .get(id, snapshotId);
   if (!row) {
@@ -33,29 +33,28 @@ const upsertInput = z.object({
   name: trimmedText,
   amount: eurCents,
   category: trimmedText,
-  recurring: z.boolean(),
+  recurrence,
 });
 
 export const incomesRouter = router({
   upsert: publicProcedure
     .input(upsertInput)
     .mutation(({ ctx, input }) => {
-      const { id, snapshotId, name, amount, category, recurring } = input;
-      const recurringInt = recurring ? 1 : 0;
+      const { id, snapshotId, name, amount, category, recurrence } = input;
 
       if (id !== undefined) {
         requireIncome(ctx.db, id, snapshotId);
 
         ctx.db.run(
-          'UPDATE incomes SET name = ?, amount = ?, category = ?, recurring = ? WHERE id = ?',
-          [name, amount, category, recurringInt, id]
+          'UPDATE incomes SET name = ?, amount = ?, category = ?, recurrence = ? WHERE id = ?',
+          [name, amount, category, recurrence, id]
         );
 
         touchSnapshot(ctx.db, snapshotId);
 
         return ctx.db
           .query<IncomeRow, [number]>(
-            'SELECT id, snapshot_id, name, amount, category, recurring, position FROM incomes WHERE id = ?'
+            'SELECT id, snapshot_id, name, amount, category, recurrence, position FROM incomes WHERE id = ?'
           )
           .get(id)!;
       } else {
@@ -68,17 +67,17 @@ export const incomesRouter = router({
 
         const result = ctx.db
           .prepare(
-            `INSERT INTO incomes (snapshot_id, name, amount, category, recurring, position)
+            `INSERT INTO incomes (snapshot_id, name, amount, category, recurrence, position)
              VALUES (?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position) + 1, 0) FROM incomes WHERE snapshot_id = ?))`
           )
-          .run(snapshotId, name, amount, category, recurringInt, snapshotId);
+          .run(snapshotId, name, amount, category, recurrence, snapshotId);
 
         const newId = Number(result.lastInsertRowid);
         touchSnapshot(ctx.db, snapshotId);
 
         return ctx.db
           .query<IncomeRow, [number]>(
-            'SELECT id, snapshot_id, name, amount, category, recurring, position FROM incomes WHERE id = ?'
+            'SELECT id, snapshot_id, name, amount, category, recurrence, position FROM incomes WHERE id = ?'
           )
           .get(newId)!;
       }

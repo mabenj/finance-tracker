@@ -3,6 +3,7 @@ import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
 import { centsToEuroStr, eurosToCents, sanitizeEuroInput } from '../../lib/currency';
 import { getIncomeCategories } from '../../lib/income-autocomplete';
+import { RecurrenceControl, RecurrenceMarker, type Recurrence } from './RecurrenceControl';
 import { ReorderButtons } from './ReorderButtons';
 import { t } from '../../lib/strings';
 import { Button } from '../ui/Button';
@@ -16,7 +17,7 @@ interface Income {
   name: string;
   amount: number;
   category: string;
-  recurring: number;
+  recurrence: Recurrence;
 }
 
 interface Props {
@@ -30,10 +31,10 @@ interface RowEdit {
   name: string;
   amount: string;
   category: string;
-  recurring: boolean;
+  recurrence: Recurrence;
 }
 
-const BLANK_EDIT: RowEdit = { name: '', amount: '0', category: '', recurring: false };
+const BLANK_EDIT: RowEdit = { name: '', amount: '0', category: '', recurrence: 'none' };
 
 export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props) {
   const { showToast } = useToast();
@@ -73,7 +74,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
       name: inc.name,
       amount: centsToEuroStr(inc.amount),
       category: inc.category,
-      recurring: inc.recurring === 1,
+      recurrence: inc.recurrence,
     });
   }
 
@@ -89,7 +90,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
       name: row.name,
       amount: amountCents,
       category: row.category,
-      recurring: row.recurring,
+      recurrence: row.recurrence,
     });
   }
 
@@ -127,13 +128,12 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
         <td className="py-1.5 px-3">
           <input className="field" list={datalistId} value={row.category} onChange={field('category')} onKeyDown={onKey(save)} placeholder={t.category} />
         </td>
-        <td className="py-1.5 px-3 text-center">
-          <input
-            type="checkbox"
-            checked={row.recurring}
-            onChange={(e) => setRow((r) => ({ ...r, recurring: e.target.checked }))}
-            className="h-4 w-4 accent-[var(--accent)]"
-            aria-label={t.recurring}
+        <td className="py-1.5 px-3">
+          <RecurrenceControl
+            value={row.recurrence}
+            onChange={(v) => setRow((r) => ({ ...r, recurrence: v }))}
+            showLabel={false}
+            className="justify-center"
           />
         </td>
         <td className="py-1.5 px-3 whitespace-nowrap text-right">
@@ -196,13 +196,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
                     </td>
                     <td className={`${td} text-ink-muted`}>{inc.category}</td>
                     <td className={`${td} text-center`}>
-                      {inc.recurring === 1 ? (
-                        <span className="rounded-mark bg-accent-wash px-1.5 py-0.5 text-xs font-medium text-accent">
-                          {t.recurring}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-ink-muted">—</span>
-                      )}
+                      <RecurrenceMarker recurrence={inc.recurrence} emptyDash />
                     </td>
                     {editMode && (
                       <td className={`${td} whitespace-nowrap text-right`}>

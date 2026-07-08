@@ -20,14 +20,14 @@ describe('incomes router', () => {
       name: 'Salary',
       amount: 500000,
       category: 'Employment',
-      recurring: true,
+      recurrence: 'fixed',
     });
 
     expect(income.id).toBeGreaterThan(0);
     expect(income.name).toBe('Salary');
     expect(income.amount).toBe(500000);
     expect(income.category).toBe('Employment');
-    expect(income.recurring).toBe(1);
+    expect(income.recurrence).toBe('fixed');
   });
 
   test('upsert updates an existing income when id is provided', async () => {
@@ -38,7 +38,7 @@ describe('incomes router', () => {
       name: 'Salary',
       amount: 500000,
       category: 'Employment',
-      recurring: true,
+      recurrence: 'fixed',
     });
 
     const updated = await caller.incomes.upsert({
@@ -47,13 +47,13 @@ describe('incomes router', () => {
       name: 'Bonus',
       amount: 100000,
       category: 'Employment',
-      recurring: false,
+      recurrence: 'none',
     });
 
     expect(updated.id).toBe(created.id);
     expect(updated.name).toBe('Bonus');
     expect(updated.amount).toBe(100000);
-    expect(updated.recurring).toBe(0);
+    expect(updated.recurrence).toBe('none');
   });
 
   test('updated_at advances when an income is created', async () => {
@@ -71,7 +71,7 @@ describe('incomes router', () => {
       name: 'Salary',
       amount: 500000,
       category: 'Employment',
-      recurring: true,
+      recurrence: 'fixed',
     });
 
     const after = db
@@ -87,8 +87,8 @@ describe('incomes router', () => {
     );
     const snapId = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!.id;
     db.run(
-      'INSERT INTO incomes (snapshot_id, name, amount, category, recurring) VALUES (?, ?, ?, ?, ?)',
-      [snapId, 'Salary', 500000, 'Employment', 1]
+      'INSERT INTO incomes (snapshot_id, name, amount, category, recurrence) VALUES (?, ?, ?, ?, ?)',
+      [snapId, 'Salary', 500000, 'Employment', 'fixed']
     );
     const incomeId = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!.id;
 
@@ -113,7 +113,7 @@ describe('incomes router', () => {
         name: 'Salary',
         amount: -1,
         category: 'Employment',
-        recurring: false,
+        recurrence: 'none',
       })
     ).rejects.toThrow();
   });
@@ -127,7 +127,7 @@ describe('incomes router', () => {
         name: '',
         amount: 100000,
         category: 'Employment',
-        recurring: false,
+        recurrence: 'none',
       })
     ).rejects.toThrow();
   });
@@ -141,7 +141,7 @@ describe('incomes router', () => {
         name: 'a'.repeat(101),
         amount: 100000,
         category: 'Employment',
-        recurring: false,
+        recurrence: 'none',
       })
     ).rejects.toThrow();
   });
@@ -155,7 +155,7 @@ describe('incomes router', () => {
         name: 'Salary',
         amount: 100000,
         category: '',
-        recurring: false,
+        recurrence: 'none',
       })
     ).rejects.toThrow();
   });
@@ -176,7 +176,7 @@ describe('incomes router', () => {
         name: 'Salary',
         amount: 100000,
         category: 'Employment',
-        recurring: false,
+        recurrence: 'none',
       })
     ).rejects.toThrow();
   });
@@ -189,7 +189,7 @@ describe('incomes router', () => {
       name: '  Salary  ',
       amount: 100000,
       category: '  Employment  ',
-      recurring: false,
+      recurrence: 'none',
     });
     expect(income.name).toBe('Salary');
     expect(income.category).toBe('Employment');
@@ -203,7 +203,7 @@ describe('incomes router', () => {
       name: 'Salary',
       amount: 500000,
       category: 'Employment',
-      recurring: true,
+      recurrence: 'fixed',
     });
 
     const result = await caller.incomes.delete({ id: created.id, snapshotId: snap.id });
@@ -220,7 +220,7 @@ describe('incomes router', () => {
       name: 'Salary',
       amount: 500000,
       category: 'Employment',
-      recurring: true,
+      recurrence: 'fixed',
     });
 
     await expect(
@@ -230,7 +230,7 @@ describe('incomes router', () => {
         name: 'Salary',
         amount: 500000,
         category: 'Employment',
-        recurring: false,
+        recurrence: 'none',
       })
     ).rejects.toThrow();
   });
@@ -243,12 +243,60 @@ describe('incomes router', () => {
       name: 'Salary',
       amount: 500000,
       category: 'Employment',
-      recurring: true,
+      recurrence: 'fixed',
     });
 
     const full = await caller.snapshots.get({ id: snap.id });
     expect(full.incomes).toHaveLength(1);
     expect(full.incomes[0].name).toBe('Salary');
+    expect(full.incomes[0].recurrence).toBe('fixed');
+  });
+
+  test('upsert accepts the variable recurrence kind and returns it', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+
+    const income = await caller.incomes.upsert({
+      snapshotId: snap.id,
+      name: 'Freelance',
+      amount: 80000,
+      category: 'Muu',
+      recurrence: 'variable',
+    });
+
+    expect(income.recurrence).toBe('variable');
+  });
+
+  test('upsert rejects an unknown recurrence value', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+
+    await expect(
+      caller.incomes.upsert({
+        snapshotId: snap.id,
+        name: 'Salary',
+        amount: 500000,
+        category: 'Employment',
+        // @ts-expect-error — invalid recurrence kind must be rejected by the validator
+        recurrence: 'monthly',
+      })
+    ).rejects.toThrow();
+  });
+
+  test('upsert rejects the old boolean recurring shape', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+
+    await expect(
+      caller.incomes.upsert({
+        snapshotId: snap.id,
+        name: 'Salary',
+        amount: 500000,
+        category: 'Employment',
+        // @ts-expect-error — the boolean `recurring` field no longer exists; `recurrence` is required
+        recurring: true,
+      })
+    ).rejects.toThrow();
   });
 });
 
@@ -258,7 +306,7 @@ describe('incomes reorder', () => {
     const snap = await caller.snapshots.create({ year: 2026, month: 1 });
     const ids: number[] = [];
     for (const name of ['A', 'B', 'C']) {
-      const inc = await caller.incomes.upsert({ snapshotId: snap.id, name, amount: 1000, category: 'x', recurring: false });
+      const inc = await caller.incomes.upsert({ snapshotId: snap.id, name, amount: 1000, category: 'x', recurrence: 'none' });
       ids.push(inc.id);
     }
     const reordered = [ids[2], ids[0], ids[1]];
@@ -280,7 +328,7 @@ describe('incomes reorder', () => {
   test('reorder of a single income is a no-op', async () => {
     const { caller } = makeTestCaller();
     const snap = await caller.snapshots.create({ year: 2026, month: 1 });
-    const inc = await caller.incomes.upsert({ snapshotId: snap.id, name: 'Solo', amount: 1000, category: 'x', recurring: false });
+    const inc = await caller.incomes.upsert({ snapshotId: snap.id, name: 'Solo', amount: 1000, category: 'x', recurrence: 'none' });
     await caller.incomes.reorder({ snapshotId: snap.id, orderedIds: [inc.id] });
     const full = await caller.snapshots.get({ id: snap.id });
     expect(full.incomes.map((i) => i.id)).toEqual([inc.id]);
@@ -291,7 +339,7 @@ describe('incomes reorder', () => {
     const snap = await caller.snapshots.create({ year: 2026, month: 1 });
     const ids: number[] = [];
     for (const name of ['A', 'B', 'C']) {
-      const inc = await caller.incomes.upsert({ snapshotId: snap.id, name, amount: 1000, category: 'x', recurring: false });
+      const inc = await caller.incomes.upsert({ snapshotId: snap.id, name, amount: 1000, category: 'x', recurrence: 'none' });
       ids.push(inc.id);
     }
     await expect(
@@ -304,11 +352,11 @@ describe('incomes reorder', () => {
     const snap = await caller.snapshots.create({ year: 2026, month: 1 });
     const ids: number[] = [];
     for (const name of ['A', 'B', 'C']) {
-      const inc = await caller.incomes.upsert({ snapshotId: snap.id, name, amount: 1000, category: 'x', recurring: false });
+      const inc = await caller.incomes.upsert({ snapshotId: snap.id, name, amount: 1000, category: 'x', recurrence: 'none' });
       ids.push(inc.id);
     }
     await caller.incomes.reorder({ snapshotId: snap.id, orderedIds: [ids[2], ids[1], ids[0]] });
-    const added = await caller.incomes.upsert({ snapshotId: snap.id, name: 'D', amount: 1000, category: 'x', recurring: false });
+    const added = await caller.incomes.upsert({ snapshotId: snap.id, name: 'D', amount: 1000, category: 'x', recurrence: 'none' });
 
     const full = await caller.snapshots.get({ id: snap.id });
     expect(full.incomes.map((i) => i.id)).toEqual([ids[2], ids[1], ids[0], added.id]);

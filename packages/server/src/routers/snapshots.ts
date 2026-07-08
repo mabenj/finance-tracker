@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, publicProcedure, TRPCError } from '../trpc';
 import { carryForward } from '../services/carry-forward';
 import { findPrevSnapshot } from '../lib/find-prev-snapshot';
+import type { Recurrence } from '../lib/validators';
 
 interface SnapshotRow {
   id: number;
@@ -26,7 +27,7 @@ interface IncomeRow {
   name: string;
   amount: number;
   category: string;
-  recurring: number;
+  recurrence: Recurrence;
   position: number;
 }
 
@@ -42,7 +43,7 @@ interface ExpenseRow {
   name: string;
   amount: number;
   category_id: number;
-  recurring: number;
+  recurrence: Recurrence;
   position: number;
 }
 
@@ -87,7 +88,7 @@ export const snapshotsRouter = router({
 
       const incomes = ctx.db
         .query<IncomeRow, [number]>(
-          'SELECT id, name, amount, category, recurring, position FROM incomes WHERE snapshot_id = ? ORDER BY position, id'
+          'SELECT id, name, amount, category, recurrence, position FROM incomes WHERE snapshot_id = ? ORDER BY position, id'
         )
         .all(input.id);
 
@@ -99,7 +100,7 @@ export const snapshotsRouter = router({
 
       const expenses = ctx.db
         .query<ExpenseRow, [number]>(
-          'SELECT id, name, amount, category_id, recurring, position FROM expenses WHERE snapshot_id = ? ORDER BY position, id'
+          'SELECT id, name, amount, category_id, recurrence, position FROM expenses WHERE snapshot_id = ? ORDER BY position, id'
         )
         .all(input.id);
 

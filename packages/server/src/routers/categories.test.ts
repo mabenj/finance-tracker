@@ -103,16 +103,16 @@ describe('categories router', () => {
 
     // 2 expenses under parent, 1 under child
     db.run(
-      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)',
-      [snap.id, 'Rent', 80000, parent.id, 0]
+      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)',
+      [snap.id, 'Rent', 80000, parent.id, 'none']
     );
     db.run(
-      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)',
-      [snap.id, 'Insurance', 5000, parent.id, 0]
+      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)',
+      [snap.id, 'Insurance', 5000, parent.id, 'none']
     );
     db.run(
-      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)',
-      [snap.id, 'Electricity', 3000, child.id, 0]
+      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)',
+      [snap.id, 'Electricity', 3000, child.id, 'none']
     );
 
     const preview = await caller.categories.deletePreview({ id: parent.id, snapshotId: snap.id });
@@ -161,16 +161,16 @@ describe('categories router', () => {
     });
 
     db.run(
-      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)',
-      [snap.id, 'Root Expense', 1000, root.id, 0]
+      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)',
+      [snap.id, 'Root Expense', 1000, root.id, 'none']
     );
     db.run(
-      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)',
-      [snap.id, 'Child Expense', 2000, child.id, 0]
+      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)',
+      [snap.id, 'Child Expense', 2000, child.id, 'none']
     );
     db.run(
-      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)',
-      [snap.id, 'Grandchild Expense', 3000, grandchild.id, 0]
+      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)',
+      [snap.id, 'Grandchild Expense', 3000, grandchild.id, 'none']
     );
 
     await caller.categories.delete({ id: root.id, snapshotId: snap.id });

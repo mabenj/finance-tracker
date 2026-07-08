@@ -21,14 +21,14 @@ describe('expenses router', () => {
       name: 'Rent',
       amount: 80000,
       categoryId: cat.id,
-      recurring: true,
+      recurrence: 'fixed',
     });
 
     expect(expense.id).toBeGreaterThan(0);
     expect(expense.name).toBe('Rent');
     expect(expense.amount).toBe(80000);
     expect(expense.category_id).toBe(cat.id);
-    expect(expense.recurring).toBe(1);
+    expect(expense.recurrence).toBe('fixed');
   });
 
   test('upsert updates an existing expense when id is provided', async () => {
@@ -41,7 +41,7 @@ describe('expenses router', () => {
       name: 'Rent',
       amount: 80000,
       categoryId: cat.id,
-      recurring: true,
+      recurrence: 'fixed',
     });
 
     const updated = await caller.expenses.upsert({
@@ -50,13 +50,13 @@ describe('expenses router', () => {
       name: 'Rent Updated',
       amount: 85000,
       categoryId: cat.id,
-      recurring: false,
+      recurrence: 'none',
     });
 
     expect(updated.id).toBe(created.id);
     expect(updated.name).toBe('Rent Updated');
     expect(updated.amount).toBe(85000);
-    expect(updated.recurring).toBe(0);
+    expect(updated.recurrence).toBe('none');
   });
 
   test('upsert rejects category_id from a different snapshot', async () => {
@@ -71,7 +71,7 @@ describe('expenses router', () => {
         name: 'Rent',
         amount: 80000,
         categoryId: cat.id,
-        recurring: false,
+        recurrence: 'none',
       })
     ).rejects.toThrow();
   });
@@ -86,7 +86,7 @@ describe('expenses router', () => {
       name: 'Free Item',
       amount: 0,
       categoryId: cat.id,
-      recurring: false,
+      recurrence: 'none',
     });
 
     expect(expense.amount).toBe(0);
@@ -103,7 +103,7 @@ describe('expenses router', () => {
         name: 'Invalid',
         amount: -1,
         categoryId: cat.id,
-        recurring: false,
+        recurrence: 'none',
       })
     ).rejects.toThrow();
   });
@@ -119,7 +119,7 @@ describe('expenses router', () => {
         name: '',
         amount: 1000,
         categoryId: cat.id,
-        recurring: false,
+        recurrence: 'none',
       })
     ).rejects.toThrow();
   });
@@ -135,7 +135,7 @@ describe('expenses router', () => {
         name: 'a'.repeat(101),
         amount: 1000,
         categoryId: cat.id,
-        recurring: false,
+        recurrence: 'none',
       })
     ).rejects.toThrow();
   });
@@ -150,7 +150,7 @@ describe('expenses router', () => {
       name: '  Rent  ',
       amount: 80000,
       categoryId: cat.id,
-      recurring: false,
+      recurrence: 'none',
     });
 
     expect(expense.name).toBe('Rent');
@@ -166,7 +166,7 @@ describe('expenses router', () => {
       name: 'Rent',
       amount: 80000,
       categoryId: cat.id,
-      recurring: false,
+      recurrence: 'none',
     });
 
     const result = await caller.expenses.delete({ id: created.id, snapshotId: snap.id });
@@ -200,7 +200,7 @@ describe('expenses router', () => {
       name: 'Rent',
       amount: 80000,
       categoryId: cat.id,
-      recurring: false,
+      recurrence: 'none',
     });
 
     await expect(
@@ -228,7 +228,7 @@ describe('expenses router', () => {
       name: 'Rent',
       amount: 80000,
       categoryId: catId,
-      recurring: false,
+      recurrence: 'none',
     });
 
     const after = db
@@ -249,9 +249,9 @@ describe('expenses router', () => {
     const catId = Number(catResult.lastInsertRowid);
     const expResult = db
       .prepare(
-        'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)'
+        'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)'
       )
-      .run(snapId, 'Rent', 80000, catId, 0);
+      .run(snapId, 'Rent', 80000, catId, 'none');
     const expId = Number(expResult.lastInsertRowid);
 
     const before = db
@@ -275,7 +275,7 @@ describe('expenses router', () => {
       name: 'Rent',
       amount: 80000,
       categoryId: cat.id,
-      recurring: true,
+      recurrence: 'fixed',
     });
 
     const full = await caller.snapshots.get({ id: snap.id });
@@ -283,6 +283,57 @@ describe('expenses router', () => {
     expect(full.expenses[0].name).toBe('Rent');
     expect(full.expenses[0].amount).toBe(80000);
     expect(full.expenses[0].category_id).toBe(cat.id);
+    expect(full.expenses[0].recurrence).toBe('fixed');
+  });
+
+  test('upsert accepts the variable recurrence kind and returns it', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const cat = await caller.categories.create({ snapshotId: snap.id, name: 'Groceries' });
+
+    const expense = await caller.expenses.upsert({
+      snapshotId: snap.id,
+      name: 'Food',
+      amount: 74000,
+      categoryId: cat.id,
+      recurrence: 'variable',
+    });
+
+    expect(expense.recurrence).toBe('variable');
+  });
+
+  test('upsert rejects an unknown recurrence value', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const cat = await caller.categories.create({ snapshotId: snap.id, name: 'Housing' });
+
+    await expect(
+      caller.expenses.upsert({
+        snapshotId: snap.id,
+        name: 'Rent',
+        amount: 80000,
+        categoryId: cat.id,
+        // @ts-expect-error — invalid recurrence kind must be rejected by the validator
+        recurrence: 'weekly',
+      })
+    ).rejects.toThrow();
+  });
+
+  test('upsert rejects the old boolean recurring shape', async () => {
+    const { caller } = makeTestCaller();
+    const snap = await caller.snapshots.create({ year: 2026, month: 1 });
+    const cat = await caller.categories.create({ snapshotId: snap.id, name: 'Housing' });
+
+    await expect(
+      caller.expenses.upsert({
+        snapshotId: snap.id,
+        name: 'Rent',
+        amount: 80000,
+        categoryId: cat.id,
+        // @ts-expect-error — the boolean `recurring` field no longer exists; `recurrence` is required
+        recurring: true,
+      })
+    ).rejects.toThrow();
   });
 });
 
@@ -293,7 +344,7 @@ describe('expenses reorder', () => {
     const cat = await caller.categories.create({ snapshotId: snap.id, name: 'Housing' });
     const ids: number[] = [];
     for (const name of ['A', 'B', 'C']) {
-      const e = await caller.expenses.upsert({ snapshotId: snap.id, name, amount: 1000, categoryId: cat.id, recurring: false });
+      const e = await caller.expenses.upsert({ snapshotId: snap.id, name, amount: 1000, categoryId: cat.id, recurrence: 'none' });
       ids.push(e.id);
     }
     const reordered = [ids[2], ids[0], ids[1]];
@@ -310,8 +361,8 @@ describe('expenses reorder', () => {
     const snap = await caller.snapshots.create({ year: 2026, month: 1 });
     const catA = await caller.categories.create({ snapshotId: snap.id, name: 'A' });
     const catB = await caller.categories.create({ snapshotId: snap.id, name: 'B' });
-    const a = await caller.expenses.upsert({ snapshotId: snap.id, name: 'a', amount: 1000, categoryId: catA.id, recurring: false });
-    const b = await caller.expenses.upsert({ snapshotId: snap.id, name: 'b', amount: 1000, categoryId: catB.id, recurring: false });
+    const a = await caller.expenses.upsert({ snapshotId: snap.id, name: 'a', amount: 1000, categoryId: catA.id, recurrence: 'none' });
+    const b = await caller.expenses.upsert({ snapshotId: snap.id, name: 'b', amount: 1000, categoryId: catB.id, recurrence: 'none' });
     await expect(
       caller.expenses.reorder({ snapshotId: snap.id, categoryId: catA.id, orderedIds: [a.id, b.id] })
     ).rejects.toThrow();
@@ -323,7 +374,7 @@ describe('expenses reorder', () => {
     const cat = await caller.categories.create({ snapshotId: snap.id, name: 'Housing' });
     const ids: number[] = [];
     for (const name of ['A', 'B']) {
-      const e = await caller.expenses.upsert({ snapshotId: snap.id, name, amount: 1000, categoryId: cat.id, recurring: false });
+      const e = await caller.expenses.upsert({ snapshotId: snap.id, name, amount: 1000, categoryId: cat.id, recurrence: 'none' });
       ids.push(e.id);
     }
     await expect(
@@ -337,11 +388,11 @@ describe('expenses reorder', () => {
     const catA = await caller.categories.create({ snapshotId: snap.id, name: 'A' });
     const catB = await caller.categories.create({ snapshotId: snap.id, name: 'B' });
     // `moved` is created first (lowest id), so id-order alone would place it first in B.
-    const moved = await caller.expenses.upsert({ snapshotId: snap.id, name: 'moved', amount: 1000, categoryId: catA.id, recurring: false });
-    const b1 = await caller.expenses.upsert({ snapshotId: snap.id, name: 'b1', amount: 1000, categoryId: catB.id, recurring: false });
-    const b2 = await caller.expenses.upsert({ snapshotId: snap.id, name: 'b2', amount: 1000, categoryId: catB.id, recurring: false });
+    const moved = await caller.expenses.upsert({ snapshotId: snap.id, name: 'moved', amount: 1000, categoryId: catA.id, recurrence: 'none' });
+    const b1 = await caller.expenses.upsert({ snapshotId: snap.id, name: 'b1', amount: 1000, categoryId: catB.id, recurrence: 'none' });
+    const b2 = await caller.expenses.upsert({ snapshotId: snap.id, name: 'b2', amount: 1000, categoryId: catB.id, recurrence: 'none' });
 
-    await caller.expenses.upsert({ id: moved.id, snapshotId: snap.id, name: 'moved', amount: 1000, categoryId: catB.id, recurring: false });
+    await caller.expenses.upsert({ id: moved.id, snapshotId: snap.id, name: 'moved', amount: 1000, categoryId: catB.id, recurrence: 'none' });
 
     const full = await caller.snapshots.get({ id: snap.id });
     const inB = full.expenses.filter((e) => e.category_id === catB.id).map((e) => e.id);

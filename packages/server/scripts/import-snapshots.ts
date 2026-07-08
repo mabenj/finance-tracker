@@ -134,13 +134,13 @@ const stmt = {
     'INSERT INTO accounts (snapshot_id, name, type, category, balance, total_paid, position) VALUES (?, ?, ?, ?, ?, ?, ?)'
   ),
   insertIncome: db.prepare(
-    'INSERT INTO incomes (snapshot_id, name, amount, category, recurring, position) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO incomes (snapshot_id, name, amount, category, recurrence, position) VALUES (?, ?, ?, ?, ?, ?)'
   ),
   insertCategory: db.prepare(
     'INSERT INTO expense_categories (snapshot_id, name, parent_id, position) VALUES (?, ?, ?, ?)'
   ),
   insertExpense: db.prepare(
-    'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring, position) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence, position) VALUES (?, ?, ?, ?, ?, ?)'
   ),
 };
 
@@ -207,7 +207,9 @@ function insertIncomeAndComputeTaxes(
     return { incomeInserted: false, taxCents: null };
   }
   const grossCents = toCents(salary.gross, 'salary.gross', warn);
-  stmt.insertIncome.run(snapshotId, 'Palkka', grossCents, 'Palkka', 0, 0);
+  // The importer treats every historical item as one-off (recurrence 'none');
+  // the first real carry-forward after import is what establishes recurrence.
+  stmt.insertIncome.run(snapshotId, 'Palkka', grossCents, 'Palkka', 'none', 0);
 
   if (salary.net > salary.gross) {
     warn(`salary.net (${salary.net}) exceeds salary.gross (${salary.gross}) — no taxes expense created`);
@@ -239,7 +241,7 @@ function insertExpenses(
   if (taxCents !== null) {
     const res = stmt.insertCategory.run(snapshotId, TAXES_CATEGORY, null, topCatPos++);
     const taxCatId = Number(res.lastInsertRowid);
-    stmt.insertExpense.run(snapshotId, TAXES_CATEGORY, taxCents, taxCatId, 0, 0);
+    stmt.insertExpense.run(snapshotId, TAXES_CATEGORY, taxCents, taxCatId, 'none', 0);
     counts.categories++;
     counts.expenses++;
   }
@@ -260,7 +262,7 @@ function insertExpenses(
           throw new ImportError(`numeric value "${key}" at top level of expenses (must be inside a category)`);
         }
         const expName = cleanName(key, `expense "${key}"`);
-        stmt.insertExpense.run(snapshotId, expName, toCents(val, `expense "${key}"`, warn), parentId, 0, expPos++);
+        stmt.insertExpense.run(snapshotId, expName, toCents(val, `expense "${key}"`, warn), parentId, 'none', expPos++);
         counts.expenses++;
       } else if (val && typeof val === 'object') {
         const catName = cleanName(key, `category "${key}"`);

@@ -4,6 +4,7 @@ import { SankeyDiagram } from '../visualizations/SankeyDiagram';
 import { AccountsSection } from './AccountsSection';
 import { IncomeSection } from './IncomeSection';
 import { ExpenseTree } from './ExpenseTree';
+import type { Recurrence } from './RecurrenceControl';
 import { t } from '../../lib/strings';
 import { IconChevron } from '../ui/icons';
 
@@ -21,7 +22,7 @@ interface Income {
   name: string;
   amount: number;
   category: string;
-  recurring: number;
+  recurrence: Recurrence;
 }
 
 interface Category {
@@ -36,7 +37,7 @@ interface Expense {
   name: string;
   amount: number;
   category_id: number;
-  recurring: number;
+  recurrence: Recurrence;
   position: number;
 }
 

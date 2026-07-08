@@ -68,7 +68,7 @@ describe('carryForward', () => {
     db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, ?)', [prevId, 'Grandchild', child.id]);
     const grandchild = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
     // A recurring expense on the deepest node keeps the whole ancestor chain alive.
-    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)', [prevId, 'Rent', 100000, grandchild.id, 1]);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Rent', 100000, grandchild.id, 'fixed']);
 
     const newId = insertSnapshot(db, 2026, 2);
     carryForward(db, newId, prevId);
@@ -96,8 +96,8 @@ describe('carryForward', () => {
     const oldCatId = cat.id;
 
     db.run(
-      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)',
-      [prevId, 'Rent', 100000, oldCatId, 1]
+      'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)',
+      [prevId, 'Rent', 100000, oldCatId, 'fixed']
     );
 
     const newId = insertSnapshot(db, 2026, 2);
@@ -116,13 +116,13 @@ describe('carryForward', () => {
     expect(newExp!.category_id).not.toBe(oldCatId);
   });
 
-  test('skips non-recurring expenses', () => {
+  test('skips one-off expenses', () => {
     const db = makeDb();
     const prevId = insertSnapshot(db, 2026, 1);
     db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, NULL)', [prevId, 'Misc']);
     const cat = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
-    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)', [prevId, 'Recurring', 1000, cat.id, 1]);
-    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)', [prevId, 'One-off', 5000, cat.id, 0]);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Recurring', 1000, cat.id, 'fixed']);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'One-off', 5000, cat.id, 'none']);
 
     const newId = insertSnapshot(db, 2026, 2);
     carryForward(db, newId, prevId);
@@ -137,29 +137,29 @@ describe('carryForward', () => {
     const db = makeDb();
     const prevId = insertSnapshot(db, 2026, 1);
     db.run(
-      'INSERT INTO incomes (snapshot_id, name, amount, category, recurring) VALUES (?, ?, ?, ?, ?)',
-      [prevId, 'Salary', 500000, 'Salary', 1]
+      'INSERT INTO incomes (snapshot_id, name, amount, category, recurrence) VALUES (?, ?, ?, ?, ?)',
+      [prevId, 'Salary', 500000, 'Salary', 'fixed']
     );
 
     const newId = insertSnapshot(db, 2026, 2);
     carryForward(db, newId, prevId);
 
-    const inc = db.query<{ name: string; amount: number; category: string; recurring: number }, [number]>(
-      'SELECT name, amount, category, recurring FROM incomes WHERE snapshot_id = ?'
+    const inc = db.query<{ name: string; amount: number; category: string; recurrence: string }, [number]>(
+      'SELECT name, amount, category, recurrence FROM incomes WHERE snapshot_id = ?'
     ).get(newId);
 
     expect(inc).not.toBeNull();
     expect(inc!.name).toBe('Salary');
     expect(inc!.amount).toBe(500000);
     expect(inc!.category).toBe('Salary');
-    expect(inc!.recurring).toBe(1);
+    expect(inc!.recurrence).toBe('fixed');
   });
 
-  test('skips non-recurring incomes', () => {
+  test('skips one-off incomes', () => {
     const db = makeDb();
     const prevId = insertSnapshot(db, 2026, 1);
-    db.run('INSERT INTO incomes (snapshot_id, name, amount, category, recurring) VALUES (?, ?, ?, ?, ?)', [prevId, 'Salary', 500000, 'Salary', 1]);
-    db.run('INSERT INTO incomes (snapshot_id, name, amount, category, recurring) VALUES (?, ?, ?, ?, ?)', [prevId, 'Bonus', 100000, 'Bonus', 0]);
+    db.run('INSERT INTO incomes (snapshot_id, name, amount, category, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Salary', 500000, 'Salary', 'fixed']);
+    db.run('INSERT INTO incomes (snapshot_id, name, amount, category, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Bonus', 100000, 'Bonus', 'none']);
 
     const newId = insertSnapshot(db, 2026, 2);
     carryForward(db, newId, prevId);
@@ -226,7 +226,7 @@ describe('carryForward', () => {
     const zId = Number(db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!.id);
     // Each subcategory needs a recurring expense to survive carry-forward.
     for (const cid of [xId, yId, zId]) {
-      db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)', [prevId, 'e', 100, cid, 1]);
+      db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'e', 100, cid, 'fixed']);
     }
 
     const newId = insertSnapshot(db, 2026, 2);
@@ -248,10 +248,10 @@ describe('carryForward', () => {
     db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id, position) VALUES (?, ?, NULL, 0)', [prevId, 'Cat']);
     const catId = Number(db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!.id);
     // positions 0..3; only positions 1 and 3 are recurring
-    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'e0', 100, catId, 0, 0]);
-    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'e1', 100, catId, 1, 1]);
-    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'e2', 100, catId, 0, 2]);
-    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'e3', 100, catId, 1, 3]);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'e0', 100, catId, 'none', 0]);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'e1', 100, catId, 'fixed', 1]);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'e2', 100, catId, 'none', 2]);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence, position) VALUES (?, ?, ?, ?, ?, ?)', [prevId, 'e3', 100, catId, 'fixed', 3]);
 
     const newId = insertSnapshot(db, 2026, 2);
     carryForward(db, newId, prevId);
@@ -270,12 +270,12 @@ describe('carryForward', () => {
       .map((r) => r.name);
   }
 
-  test('prunes a leaf whose only expense is non-recurring', () => {
+  test('prunes a leaf whose only expense is one-off', () => {
     const db = makeDb();
     const prevId = insertSnapshot(db, 2026, 1);
     db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, NULL)', [prevId, 'OneOffOnly']);
     const cat = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
-    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)', [prevId, 'Vacation', 50000, cat.id, 0]);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Vacation', 50000, cat.id, 'none']);
 
     const newId = insertSnapshot(db, 2026, 2);
     carryForward(db, newId, prevId);
@@ -294,17 +294,30 @@ describe('carryForward', () => {
     expect(categoryNames(db, newId)).toEqual([]);
   });
 
-  test('keeps a category with a recurring expense', () => {
+  test('keeps a category with a fixed expense', () => {
     const db = makeDb();
     const prevId = insertSnapshot(db, 2026, 1);
     db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, NULL)', [prevId, 'Housing']);
     const cat = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
-    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)', [prevId, 'Rent', 100000, cat.id, 1]);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Rent', 100000, cat.id, 'fixed']);
 
     const newId = insertSnapshot(db, 2026, 2);
     carryForward(db, newId, prevId);
 
     expect(categoryNames(db, newId)).toEqual(['Housing']);
+  });
+
+  test('keeps a category whose only expense is variable', () => {
+    const db = makeDb();
+    const prevId = insertSnapshot(db, 2026, 1);
+    db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, NULL)', [prevId, 'Groceries']);
+    const cat = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Food', 74000, cat.id, 'variable']);
+
+    const newId = insertSnapshot(db, 2026, 2);
+    carryForward(db, newId, prevId);
+
+    expect(categoryNames(db, newId)).toEqual(['Groceries']);
   });
 
   test('keeps the full ancestor chain for a deep recurring descendant', () => {
@@ -317,7 +330,7 @@ describe('carryForward', () => {
     db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, ?)', [prevId, 'Grandchild', child.id]);
     const grandchild = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
     // recurring expense only on the deepest node
-    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)', [prevId, 'Rent', 100000, grandchild.id, 1]);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Rent', 100000, grandchild.id, 'fixed']);
 
     const newId = insertSnapshot(db, 2026, 2);
     carryForward(db, newId, prevId);
@@ -333,7 +346,7 @@ describe('carryForward', () => {
     db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, ?)', [prevId, 'Keep', parent.id]);
     const keepCat = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
     db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, ?)', [prevId, 'Drop', parent.id]);
-    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)', [prevId, 'Rent', 100000, keepCat.id, 1]);
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Rent', 100000, keepCat.id, 'fixed']);
 
     const newId = insertSnapshot(db, 2026, 2);
     carryForward(db, newId, prevId);
@@ -349,12 +362,92 @@ describe('carryForward', () => {
     db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, ?)', [prevId, 'ChildA', parent.id]);
     const childA = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
     db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, ?)', [prevId, 'ChildB', parent.id]);
-    // only a non-recurring expense anywhere in the subtree
-    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring) VALUES (?, ?, ?, ?, ?)', [prevId, 'One-off', 5000, childA.id, 0]);
+    // only a one-off expense anywhere in the subtree
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'One-off', 5000, childA.id, 'none']);
 
     const newId = insertSnapshot(db, 2026, 2);
     carryForward(db, newId, prevId);
 
     expect(categoryNames(db, newId)).toEqual([]);
+  });
+
+  // ── Tri-state recurrence: amount handling and kind stickiness ──────────────
+
+  test('carries a fixed expense with its previous amount', () => {
+    const db = makeDb();
+    const prevId = insertSnapshot(db, 2026, 1);
+    db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, NULL)', [prevId, 'Housing']);
+    const cat = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Rent', 120000, cat.id, 'fixed']);
+
+    const newId = insertSnapshot(db, 2026, 2);
+    carryForward(db, newId, prevId);
+
+    const exp = db.query<{ amount: number; recurrence: string }, [number]>(
+      'SELECT amount, recurrence FROM expenses WHERE snapshot_id = ?'
+    ).get(newId)!;
+    expect(exp.amount).toBe(120000);
+    expect(exp.recurrence).toBe('fixed');
+  });
+
+  test('carries a variable expense at €0, keeping its kind', () => {
+    const db = makeDb();
+    const prevId = insertSnapshot(db, 2026, 1);
+    db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, NULL)', [prevId, 'Groceries']);
+    const cat = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Food', 74000, cat.id, 'variable']);
+
+    const newId = insertSnapshot(db, 2026, 2);
+    carryForward(db, newId, prevId);
+
+    const exp = db.query<{ amount: number; recurrence: string }, [number]>(
+      'SELECT amount, recurrence FROM expenses WHERE snapshot_id = ?'
+    ).get(newId)!;
+    expect(exp.amount).toBe(0);
+    expect(exp.recurrence).toBe('variable');
+  });
+
+  test('carries a fixed income with amount but zeroes a variable income', () => {
+    const db = makeDb();
+    const prevId = insertSnapshot(db, 2026, 1);
+    db.run('INSERT INTO incomes (snapshot_id, name, amount, category, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Salary', 500000, 'Palkka', 'fixed']);
+    db.run('INSERT INTO incomes (snapshot_id, name, amount, category, recurrence) VALUES (?, ?, ?, ?, ?)', [prevId, 'Freelance', 80000, 'Muu', 'variable']);
+
+    const newId = insertSnapshot(db, 2026, 2);
+    carryForward(db, newId, prevId);
+
+    const rows = db.query<{ name: string; amount: number; recurrence: string }, [number]>(
+      'SELECT name, amount, recurrence FROM incomes WHERE snapshot_id = ? ORDER BY position, id'
+    ).all(newId);
+    const salary = rows.find((r) => r.name === 'Salary')!;
+    const freelance = rows.find((r) => r.name === 'Freelance')!;
+    expect(salary.amount).toBe(500000);
+    expect(salary.recurrence).toBe('fixed');
+    expect(freelance.amount).toBe(0);
+    expect(freelance.recurrence).toBe('variable');
+  });
+
+  test('recurrence kind survives successive carry-forwards (variable stays variable)', () => {
+    const db = makeDb();
+    const janId = insertSnapshot(db, 2026, 1);
+    db.run('INSERT INTO expense_categories (snapshot_id, name, parent_id) VALUES (?, ?, NULL)', [janId, 'Groceries']);
+    const cat = db.query<{ id: number }, []>('SELECT last_insert_rowid() as id').get()!;
+    db.run('INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence) VALUES (?, ?, ?, ?, ?)', [janId, 'Food', 74000, cat.id, 'variable']);
+
+    // Jan → Feb
+    const febId = insertSnapshot(db, 2026, 2);
+    carryForward(db, febId, janId);
+    // Simulate the user filling in Feb's variable amount mid-month.
+    db.run("UPDATE expenses SET amount = 68000 WHERE snapshot_id = ?", [febId]);
+
+    // Feb → Mar
+    const marId = insertSnapshot(db, 2026, 3);
+    carryForward(db, marId, febId);
+
+    const exp = db.query<{ amount: number; recurrence: string }, [number]>(
+      'SELECT amount, recurrence FROM expenses WHERE snapshot_id = ?'
+    ).get(marId)!;
+    expect(exp.recurrence).toBe('variable');
+    expect(exp.amount).toBe(0);
   });
 });

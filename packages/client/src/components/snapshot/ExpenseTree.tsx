@@ -13,6 +13,7 @@ import {
 import { sumTree } from '../../lib/sum-tree';
 import { cn } from '../../lib/cn';
 import { CategoryPicker } from './CategoryPicker';
+import { RecurrenceControl, RecurrenceMarker, type Recurrence } from './RecurrenceControl';
 import { ReorderButtons } from './ReorderButtons';
 import { t } from '../../lib/strings';
 import { Button } from '../ui/Button';
@@ -33,7 +34,7 @@ interface Expense {
   name: string;
   amount: number;
   category_id: number;
-  recurring: number;
+  recurrence: Recurrence;
   position: number;
 }
 
@@ -123,7 +124,7 @@ function ExpenseRow({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(expense.name);
   const [amount, setAmount] = useState(centsToEuroStr(expense.amount));
-  const [recurring, setRecurring] = useState(expense.recurring === 1);
+  const [recurrence, setRecurrence] = useState<Recurrence>(expense.recurrence);
   const [categoryId, setCategoryId] = useState(expense.category_id);
   // Signed adjustment composed inside the edit form. Folded into `amount`
   // locally; only persisted when Save is clicked.
@@ -173,7 +174,7 @@ function ExpenseRow({
       name: name.trim(),
       amount: finalCents,
       categoryId,
-      recurring,
+      recurrence,
     });
   }
 
@@ -199,7 +200,7 @@ function ExpenseRow({
         name: expense.name,
         amount: quickNext,
         categoryId: expense.category_id,
-        recurring: expense.recurring === 1,
+        recurrence: expense.recurrence,
       },
       onSaved ? { onSuccess: onSaved } : undefined
     );
@@ -270,15 +271,7 @@ function ExpenseRow({
             />
           </div>
           <div className="flex items-center gap-4">
-            <label className="flex cursor-pointer items-center gap-1.5 text-sm text-ink-muted">
-              <input
-                type="checkbox"
-                checked={recurring}
-                onChange={(e) => setRecurring(e.target.checked)}
-                className="h-4 w-4 rounded accent-[var(--accent)]"
-              />
-              {t.recurring}
-            </label>
+            <RecurrenceControl value={recurrence} onChange={setRecurrence} />
             <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={handleSave}
@@ -303,9 +296,7 @@ function ExpenseRow({
       <div className="flex min-w-0 flex-1 items-center justify-between py-1.5 pr-3">
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate text-sm text-ink">{expense.name}</span>
-          {expense.recurring === 1 && (
-            <span className="shrink-0 text-xs text-ink-muted" title={t.recurring}>↻</span>
-          )}
+          <RecurrenceMarker recurrence={expense.recurrence} className="shrink-0" />
         </span>
         {editMode && adjusting ? (
           <span className="ml-4 flex shrink-0 items-center gap-2">
@@ -412,7 +403,7 @@ function AddExpenseRow({
   const { showToast } = useToast();
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
-  const [recurring, setRecurring] = useState(false);
+  const [recurrence, setRecurrence] = useState<Recurrence>('none');
   const [categoryId, setCategoryId] = useState(defaultCategoryId);
 
   const upsertMut = trpc.expenses.upsert.useMutation({
@@ -424,7 +415,7 @@ function AddExpenseRow({
     const parsedAmount = eurosToCents(amount);
     if (!name.trim()) { showToast(t.nameRequired); return; }
     if (parsedAmount === null || parsedAmount < 0) { showToast(t.amountNonNegative); return; }
-    upsertMut.mutate({ snapshotId, name: name.trim(), amount: parsedAmount, categoryId, recurring });
+    upsertMut.mutate({ snapshotId, name: name.trim(), amount: parsedAmount, categoryId, recurrence });
   }
 
   return (
@@ -462,15 +453,7 @@ function AddExpenseRow({
           />
         </div>
         <div className="flex items-center gap-4">
-          <label className="flex cursor-pointer items-center gap-1.5 text-sm text-ink-muted">
-            <input
-              type="checkbox"
-              checked={recurring}
-              onChange={(e) => setRecurring(e.target.checked)}
-              className="h-4 w-4 rounded accent-[var(--accent)]"
-            />
-            {t.recurring}
-          </label>
+          <RecurrenceControl value={recurrence} onChange={setRecurrence} />
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={handleSave}

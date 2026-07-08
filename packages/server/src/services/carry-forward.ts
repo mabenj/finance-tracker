@@ -1,4 +1,5 @@
 import type { Database } from 'bun:sqlite';
+import type { Recurrence } from '../lib/validators';
 
 interface AccountRow {
   name: string;
@@ -20,14 +21,14 @@ interface ExpenseRow {
   name: string;
   amount: number;
   category_id: number;
-  recurring: number;
+  recurrence: Recurrence;
 }
 
 interface IncomeRow {
   name: string;
   amount: number;
   category: string;
-  recurring: number;
+  recurrence: Recurrence;
 }
 
 const DEFAULT_ACCOUNTS: Omit<AccountRow, 'position'>[] = [
@@ -79,13 +80,14 @@ export function carryForward(
     .all(previousSnapshotId);
 
   // Only carry a category if its subtree contains a recurring expense — i.e. the
-  // category itself or a descendant directly holds a recurring=1 expense. This
-  // prunes leaves and whole branches that hold only one-off expenses or nothing,
-  // while keeping the full ancestor chain of every survivor (a recurring
-  // grandchild keeps its parent and grandparent so the remap can re-attach it).
+  // category itself or a descendant directly holds an expense whose recurrence is
+  // not 'none' (fixed or variable). This prunes leaves and whole branches that
+  // hold only one-off expenses or nothing, while keeping the full ancestor chain
+  // of every survivor (a recurring grandchild keeps its parent and grandparent so
+  // the remap can re-attach it).
   const directRecurring = db
     .query<{ category_id: number }, [number]>(
-      'SELECT DISTINCT category_id FROM expenses WHERE snapshot_id = ? AND recurring = 1'
+      "SELECT DISTINCT category_id FROM expenses WHERE snapshot_id = ? AND recurrence != 'none'"
     )
     .all(previousSnapshotId);
 
@@ -125,16 +127,18 @@ export function carryForward(
   }
 
   // Step 3: Copy recurring expenses with remapped category IDs. Only a subset
-  // (recurring=1) carries forward, so positions are re-packed contiguously per
-  // destination category while preserving the survivors' relative order.
+  // (recurrence != 'none') carries forward, so positions are re-packed
+  // contiguously per destination category while preserving the survivors'
+  // relative order. `fixed` rows keep their amount; `variable` rows reset to €0
+  // to be filled in as the month unfolds. Both keep their recurrence kind.
   const recurringExpenses = db
     .query<ExpenseRow & { position: number }, [number]>(
-      'SELECT name, amount, category_id, recurring, position FROM expenses WHERE snapshot_id = ? AND recurring = 1 ORDER BY category_id, position, id'
+      "SELECT name, amount, category_id, recurrence, position FROM expenses WHERE snapshot_id = ? AND recurrence != 'none' ORDER BY category_id, position, id"
     )
     .all(previousSnapshotId);
 
   const insertExpense = db.prepare(
-    'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring, position) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence, position) VALUES (?, ?, ?, ?, ?, ?)'
   );
 
   const nextExpensePos = new Map<number, number>();
@@ -143,21 +147,24 @@ export function carryForward(
     if (newCategoryId === undefined) continue;
     const pos = nextExpensePos.get(newCategoryId) ?? 0;
     nextExpensePos.set(newCategoryId, pos + 1);
-    insertExpense.run(newSnapshotId, exp.name, exp.amount, newCategoryId, exp.recurring, pos);
+    const amount = exp.recurrence === 'variable' ? 0 : exp.amount;
+    insertExpense.run(newSnapshotId, exp.name, amount, newCategoryId, exp.recurrence, pos);
   }
 
-  // Step 4: Copy recurring incomes, re-packing positions contiguously.
+  // Step 4: Copy recurring incomes, re-packing positions contiguously. As with
+  // expenses, `variable` incomes reset to €0 while `fixed` keep their amount.
   const recurringIncomes = db
     .query<IncomeRow, [number]>(
-      'SELECT name, amount, category, recurring FROM incomes WHERE snapshot_id = ? AND recurring = 1 ORDER BY position, id'
+      "SELECT name, amount, category, recurrence FROM incomes WHERE snapshot_id = ? AND recurrence != 'none' ORDER BY position, id"
     )
     .all(previousSnapshotId);
 
   const insertIncome = db.prepare(
-    'INSERT INTO incomes (snapshot_id, name, amount, category, recurring, position) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO incomes (snapshot_id, name, amount, category, recurrence, position) VALUES (?, ?, ?, ?, ?, ?)'
   );
 
   recurringIncomes.forEach((inc, index) => {
-    insertIncome.run(newSnapshotId, inc.name, inc.amount, inc.category, inc.recurring, index);
+    const amount = inc.recurrence === 'variable' ? 0 : inc.amount;
+    insertIncome.run(newSnapshotId, inc.name, amount, inc.category, inc.recurrence, index);
   });
 }

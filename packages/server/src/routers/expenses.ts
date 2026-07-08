@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, publicProcedure, TRPCError } from '../trpc';
-import { trimmedText, eurCents } from '../lib/validators';
+import { trimmedText, eurCents, recurrence, type Recurrence } from '../lib/validators';
 import { touchSnapshot } from '../lib/touch-snapshot';
 import { reorderWithinScope } from '../lib/reorder';
 import type { Context } from '../trpc';
@@ -11,13 +11,13 @@ interface ExpenseRow {
   name: string;
   amount: number;
   category_id: number;
-  recurring: number;
+  recurrence: Recurrence;
 }
 
 function requireExpense(db: Context['db'], id: number, snapshotId: number): ExpenseRow {
   const row = db
     .query<ExpenseRow, [number, number]>(
-      'SELECT id, snapshot_id, name, amount, category_id, recurring FROM expenses WHERE id = ? AND snapshot_id = ?'
+      'SELECT id, snapshot_id, name, amount, category_id, recurrence FROM expenses WHERE id = ? AND snapshot_id = ?'
     )
     .get(id, snapshotId);
   if (!row) {
@@ -46,15 +46,14 @@ const upsertInput = z.object({
   name: trimmedText,
   amount: eurCents,
   categoryId: z.number().int().positive(),
-  recurring: z.boolean(),
+  recurrence,
 });
 
 export const expensesRouter = router({
   upsert: publicProcedure
     .input(upsertInput)
     .mutation(({ ctx, input }) => {
-      const { id, snapshotId, name, amount, categoryId, recurring } = input;
-      const recurringInt = recurring ? 1 : 0;
+      const { id, snapshotId, name, amount, categoryId, recurrence } = input;
 
       if (id !== undefined) {
         const existing = requireExpense(ctx.db, id, snapshotId);
@@ -63,8 +62,8 @@ export const expensesRouter = router({
         if (existing.category_id === categoryId) {
           // Same category — position is unchanged.
           ctx.db.run(
-            'UPDATE expenses SET name = ?, amount = ?, category_id = ?, recurring = ? WHERE id = ? AND snapshot_id = ?',
-            [name, amount, categoryId, recurringInt, id, snapshotId]
+            'UPDATE expenses SET name = ?, amount = ?, category_id = ?, recurrence = ? WHERE id = ? AND snapshot_id = ?',
+            [name, amount, categoryId, recurrence, id, snapshotId]
           );
         } else {
           // Re-parented to a different category — append to the end of the
@@ -72,10 +71,10 @@ export const expensesRouter = router({
           // would be meaningless among the new siblings).
           ctx.db.run(
             `UPDATE expenses
-             SET name = ?, amount = ?, category_id = ?, recurring = ?,
+             SET name = ?, amount = ?, category_id = ?, recurrence = ?,
                  position = (SELECT COALESCE(MAX(position) + 1, 0) FROM expenses WHERE category_id = ?)
              WHERE id = ? AND snapshot_id = ?`,
-            [name, amount, categoryId, recurringInt, categoryId, id, snapshotId]
+            [name, amount, categoryId, recurrence, categoryId, id, snapshotId]
           );
         }
 
@@ -83,7 +82,7 @@ export const expensesRouter = router({
 
         return ctx.db
           .query<ExpenseRow, [number]>(
-            'SELECT id, snapshot_id, name, amount, category_id, recurring FROM expenses WHERE id = ?'
+            'SELECT id, snapshot_id, name, amount, category_id, recurrence FROM expenses WHERE id = ?'
           )
           .get(id)!;
       } else {
@@ -98,17 +97,17 @@ export const expensesRouter = router({
 
         const result = ctx.db
           .prepare(
-            `INSERT INTO expenses (snapshot_id, name, amount, category_id, recurring, position)
+            `INSERT INTO expenses (snapshot_id, name, amount, category_id, recurrence, position)
              VALUES (?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position) + 1, 0) FROM expenses WHERE category_id = ?))`
           )
-          .run(snapshotId, name, amount, categoryId, recurringInt, categoryId);
+          .run(snapshotId, name, amount, categoryId, recurrence, categoryId);
 
         const newId = Number(result.lastInsertRowid);
         touchSnapshot(ctx.db, snapshotId);
 
         return ctx.db
           .query<ExpenseRow, [number]>(
-            'SELECT id, snapshot_id, name, amount, category_id, recurring FROM expenses WHERE id = ?'
+            'SELECT id, snapshot_id, name, amount, category_id, recurrence FROM expenses WHERE id = ?'
           )
           .get(newId)!;
       }
