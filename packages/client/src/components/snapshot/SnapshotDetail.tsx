@@ -78,6 +78,7 @@ export function SnapshotDetail({ snapshot, editMode, onUpdate }: Props) {
       <AccountsSection
         snapshotId={snapshot.id}
         accounts={snapshot.accounts}
+        previousAccounts={snapshot.previousSnapshot?.accounts ?? null}
         editMode={editMode}
         onUpdate={onUpdate}
       />

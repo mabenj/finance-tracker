@@ -78,6 +78,8 @@ export const t = {
   type: "Tyyppi",
   balance: "Saldo",
   totalPaid: "Maksettu yhteensä",
+  accountChange: "Muutos",
+  accountGone: "Ei enää tässä kuukausikatsauksessa",
   accountType: { asset: "Vara", liability: "Velka" } as Record<string, string>,
   noAccounts: "Ei tilejä vielä — siirry muokkaustilaan lisätäksesi.",
   deleteAccountTitle: "Poistetaanko tili?",

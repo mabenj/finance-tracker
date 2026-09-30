@@ -7,8 +7,10 @@ import { t } from '../../lib/strings';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Figure } from '../ui/Figure';
+import { Delta } from '../ui/Delta';
 import { IconButton } from '../ui/IconButton';
 import { IconPlus, IconPencil, IconTrash, IconCheck, IconX } from '../ui/icons';
+import { computeAccountChanges, type AccountChangeRow } from '../../lib/net-worth';
 
 interface Account {
   id: number;
@@ -22,6 +24,8 @@ interface Account {
 interface Props {
   snapshotId: number;
   accounts: Account[];
+  /** Accounts of the most recent prior snapshot, or null when there is none. */
+  previousAccounts: Account[] | null;
   editMode: boolean;
   onUpdate: () => void;
 }
@@ -42,7 +46,7 @@ const BLANK_EDIT: RowEdit = {
   totalPaid: '',
 };
 
-export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Props) {
+export function AccountsSection({ snapshotId, accounts, previousAccounts, editMode, onUpdate }: Props) {
   const { showToast } = useToast();
   const [editingId, setEditingId] = useState<number | 'new' | null>(null);
   const [row, setRow] = useState<RowEdit>(BLANK_EDIT);
@@ -130,6 +134,30 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
 
   const th = 'py-2 px-3 font-medium text-xs uppercase tracking-wide text-ink-muted';
   const td = 'py-2 px-3';
+  // Kategoria gives way on narrow screens so the Muutos column fits.
+  const wideOnly = 'hidden sm:table-cell';
+
+  // The first rows line up with `accounts` by index; ghost rows (accounts that
+  // exist only in the prior snapshot) follow. Null hides the Muutos column.
+  const changes = computeAccountChanges(accounts, previousAccounts);
+  const showChange = changes !== null;
+  const ghosts = changes?.filter((c) => c.kind === 'ghost') ?? [];
+
+  const typeLabel = (type: string) => t.accountType[type] ?? type;
+
+  // Arrow follows the balance; colour follows the effect on net worth.
+  function renderChange(change: AccountChangeRow<Account> | undefined) {
+    if (!change) return null;
+    return (
+      <td className={`${td} whitespace-nowrap text-right`}>
+        {change.unchanged ? (
+          <span className="text-ink-muted">—</span>
+        ) : (
+          <Delta absolute={change.balanceChange} toneValue={change.netWorthEffect} />
+        )}
+      </td>
+    );
+  }
 
   function renderEditRow(id?: number) {
     const save = () => saveRow(id);
@@ -137,6 +165,8 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
       <tr key={id ?? 'new'} className="border-b border-rule bg-accent-wash">
         <td className="py-1.5 px-3">
           <input className="field" value={row.name} onChange={field('name')} onKeyDown={onKey(save)} autoFocus placeholder={t.accountName} />
+          {/* Kategoria's own column is hidden on narrow screens; keep it editable here. */}
+          <input className="field mt-1.5 sm:hidden" value={row.category} onChange={field('category')} onKeyDown={onKey(save)} placeholder={t.category} />
         </td>
         <td className="py-1.5 px-3">
           <select className="field" value={row.type} onChange={field('type')} aria-label={t.type}>
@@ -144,12 +174,13 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
             <option value="liability">{t.accountType.liability}</option>
           </select>
         </td>
-        <td className="py-1.5 px-3">
+        <td className={`py-1.5 px-3 ${wideOnly}`}>
           <input className="field" value={row.category} onChange={field('category')} onKeyDown={onKey(save)} placeholder={t.category} />
         </td>
         <td className="py-1.5 px-3">
           <input type="number" step="1" min="0" className="field text-right" value={row.balance} onChange={currencyField('balance')} onKeyDown={onKey(save)} aria-label={t.balance} />
         </td>
+        {showChange && <td className="py-1.5 px-3" />}
         <td className="py-1.5 px-3">
           <input type="number" step="1" min="0" className="field text-right" value={row.totalPaid} onChange={currencyField('totalPaid')} onKeyDown={onKey(save)} placeholder="—" aria-label={t.totalPaid} />
         </td>
@@ -191,8 +222,9 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
               <tr className="border-b border-rule bg-paper text-left">
                 <th className={th}>{t.name}</th>
                 <th className={th}>{t.type}</th>
-                <th className={th}>{t.category}</th>
+                <th className={`${th} ${wideOnly}`}>{t.category}</th>
                 <th className={`${th} text-right`}>{t.balance}</th>
+                {showChange && <th className={`${th} text-right`}>{t.accountChange}</th>}
                 <th className={`${th} text-right`}>{t.totalPaid}</th>
                 {editMode && <th className={`${th} w-24`} />}
               </tr>
@@ -204,11 +236,12 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
                 ) : (
                   <tr key={acc.id} className="border-b border-rule last:border-0 hover:bg-paper">
                     <td className={`${td} text-ink`}>{acc.name}</td>
-                    <td className={`${td} text-ink-muted`}>{t.accountType[acc.type] ?? acc.type}</td>
-                    <td className={`${td} text-ink-muted`}>{acc.category}</td>
+                    <td className={`${td} text-ink-muted`}>{typeLabel(acc.type)}</td>
+                    <td className={`${td} ${wideOnly} text-ink-muted`}>{acc.category}</td>
                     <td className={`${td} text-right`}>
                       <Figure cents={acc.balance} />
                     </td>
+                    {renderChange(changes?.[index])}
                     <td className={`${td} text-right`}>
                       {acc.total_paid !== null ? (
                         <Figure cents={acc.total_paid} muted />
@@ -237,6 +270,24 @@ export function AccountsSection({ snapshotId, accounts, editMode, onUpdate }: Pr
                 )
               )}
               {editingId === 'new' && renderEditRow()}
+              {/* Ghost rows: gone since the prior snapshot, shown so the Muutos column
+                  adds up to the net worth change. Read-only, no row actions. */}
+              {ghosts.map((ghost) => (
+                <tr key={`ghost-${ghost.account.id}`} className="border-b border-rule last:border-0 text-ink-muted">
+                  <td className={td} title={t.accountGone}>
+                    <span className="line-through">{ghost.account.name}</span>
+                    <span className="sr-only"> ({t.accountGone})</span>
+                  </td>
+                  <td className={td}>{typeLabel(ghost.account.type)}</td>
+                  <td className={`${td} ${wideOnly}`}>{ghost.account.category}</td>
+                  <td className={`${td} text-right`}>
+                    <Figure cents={0} muted />
+                  </td>
+                  {renderChange(ghost)}
+                  <td className={`${td} text-right`}>—</td>
+                  {editMode && <td className={td} />}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

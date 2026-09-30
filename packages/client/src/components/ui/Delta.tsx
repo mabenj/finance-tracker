@@ -6,6 +6,11 @@ interface Props {
   absolute: number;
   /** Percentage change, or null when it can't be meaningfully expressed. */
   percentage?: number | null;
+  /**
+   * Signed value whose sign picks the green/red tone, when it should differ from
+   * the arrow (e.g. a falling liability: arrow down, tone gain). Defaults to `absolute`.
+   */
+  toneValue?: number;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
@@ -16,7 +21,8 @@ const SIZES = {
   lg: { text: 'text-xl', pct: 'text-base', tri: 10 },
 } as const;
 
-// Direction is a solid triangle mark (drawn, not emoji); color reinforces it.
+// Direction is a solid triangle mark (drawn, not emoji); color reinforces it
+// (or, with `toneValue`, reports whether the move was good or bad).
 function Triangle({ up, size }: { up: boolean; size: number }) {
   const h = (size * Math.sqrt(3)) / 2;
   return (
@@ -31,14 +37,15 @@ function Triangle({ up, size }: { up: boolean; size: number }) {
 }
 
 // Quiet, consistent gain/loss treatment used everywhere a change is shown.
-export function Delta({ absolute, percentage = null, size = 'sm', className }: Props) {
+export function Delta({ absolute, percentage = null, toneValue = absolute, size = 'sm', className }: Props) {
   const positive = absolute >= 0;
+  const gain = toneValue >= 0;
   const s = SIZES[size];
   return (
     <span
       className={cn(
         'figure inline-flex items-center gap-1.5 font-medium',
-        positive ? 'text-gain' : 'text-loss',
+        gain ? 'text-gain' : 'text-loss',
         s.text,
         className
       )}
