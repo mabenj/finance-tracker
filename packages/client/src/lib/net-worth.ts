@@ -36,10 +36,10 @@ interface ChangeFigures {
 
 /**
  * One row of the per-account change comparison. `matched`/`new` rows carry the
- * current snapshot's account; `ghost` rows carry an account that exists only in
+ * current snapshot's account; `departed` rows carry an account that exists only in
  * the prior snapshot (its balance is now effectively 0).
  */
-export type AccountChangeRow<A> = { kind: 'matched' | 'new' | 'ghost'; account: A } & ChangeFigures;
+export type AccountChangeRow<A> = { kind: 'matched' | 'new' | 'departed'; account: A } & ChangeFigures;
 
 function changeFigures(current: AccountLike | undefined, prior: AccountLike | undefined): ChangeFigures {
   const balanceChange = (current?.balance ?? 0) - (prior?.balance ?? 0);
@@ -50,7 +50,7 @@ function changeFigures(current: AccountLike | undefined, prior: AccountLike | un
 /**
  * Compares each account against the most recent prior snapshot, matching by exact
  * name. Returns null when there is no prior snapshot. Otherwise: the current
- * accounts in their given order, then ghost rows for prior-only accounts. The
+ * accounts in their given order, then departed rows for prior-only accounts. The
  * net worth effects of all rows sum to the snapshot's net worth change.
  */
 export function computeAccountChanges<A extends AccountLike>(
@@ -65,7 +65,7 @@ export function computeAccountChanges<A extends AccountLike>(
     return { kind: match ? 'matched' : 'new', account, ...changeFigures(account, match) };
   });
   for (const account of unmatched) {
-    rows.push({ kind: 'ghost', account, ...changeFigures(undefined, account) });
+    rows.push({ kind: 'departed', account, ...changeFigures(undefined, account) });
   }
   return rows;
 }

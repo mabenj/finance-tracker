@@ -73,5 +73,5 @@ All monetary amounts are stored as **integer EUR cents** (e.g. €12.34 = `1234`
 - `src/lib/currency.ts` — formats EUR cents using `de-DE` locale
 - `src/lib/sum-tree.ts` — DFS to aggregate expense category totals
 - `src/lib/sankey-builder.ts` — builds D3-Sankey graph (income → expenses → savings/deficit)
-- `src/lib/net-worth.ts` — computes net worth, its delta, and per-account change vs. the prior snapshot (matched/new/ghost rows)
+- `src/lib/net-worth.ts` — computes net worth, its delta, and per-account change vs. the prior snapshot (matched/new/departed rows)
 - `src/components/ui/toast.tsx` — toast notifications via React context

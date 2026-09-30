@@ -134,14 +134,14 @@ export function AccountsSection({ snapshotId, accounts, previousAccounts, editMo
 
   const th = 'py-2 px-3 font-medium text-xs uppercase tracking-wide text-ink-muted';
   const td = 'py-2 px-3';
-  // Kategoria gives way on narrow screens so the Muutos column fits.
+  // Kategoria and Maksettu yhteensä give way on narrow screens so the Muutos column fits.
   const wideOnly = 'hidden sm:table-cell';
 
-  // The first rows line up with `accounts` by index; ghost rows (accounts that
+  // The first rows line up with `accounts` by index; departed rows (accounts that
   // exist only in the prior snapshot) follow. Null hides the Muutos column.
   const changes = computeAccountChanges(accounts, previousAccounts);
   const showChange = changes !== null;
-  const ghosts = changes?.filter((c) => c.kind === 'ghost') ?? [];
+  const departed = changes?.filter((c) => c.kind === 'departed') ?? [];
 
   const typeLabel = (type: string) => t.accountType[type] ?? type;
 
@@ -179,9 +179,11 @@ export function AccountsSection({ snapshotId, accounts, previousAccounts, editMo
         </td>
         <td className="py-1.5 px-3">
           <input type="number" step="1" min="0" className="field text-right" value={row.balance} onChange={currencyField('balance')} onKeyDown={onKey(save)} aria-label={t.balance} />
+          {/* Maksettu yhteensä's own column is hidden on narrow screens; keep it editable here. */}
+          <input type="number" step="1" min="0" className="field mt-1.5 text-right sm:hidden" value={row.totalPaid} onChange={currencyField('totalPaid')} onKeyDown={onKey(save)} placeholder={t.totalPaid} aria-label={t.totalPaid} />
         </td>
         {showChange && <td className="py-1.5 px-3" />}
-        <td className="py-1.5 px-3">
+        <td className={`py-1.5 px-3 ${wideOnly}`}>
           <input type="number" step="1" min="0" className="field text-right" value={row.totalPaid} onChange={currencyField('totalPaid')} onKeyDown={onKey(save)} placeholder="—" aria-label={t.totalPaid} />
         </td>
         <td className="py-1.5 px-3 whitespace-nowrap text-right">
@@ -225,7 +227,7 @@ export function AccountsSection({ snapshotId, accounts, previousAccounts, editMo
                 <th className={`${th} ${wideOnly}`}>{t.category}</th>
                 <th className={`${th} text-right`}>{t.balance}</th>
                 {showChange && <th className={`${th} text-right`}>{t.accountChange}</th>}
-                <th className={`${th} text-right`}>{t.totalPaid}</th>
+                <th className={`${th} ${wideOnly} text-right`}>{t.totalPaid}</th>
                 {editMode && <th className={`${th} w-24`} />}
               </tr>
             </thead>
@@ -242,7 +244,7 @@ export function AccountsSection({ snapshotId, accounts, previousAccounts, editMo
                       <Figure cents={acc.balance} />
                     </td>
                     {renderChange(changes?.[index])}
-                    <td className={`${td} text-right`}>
+                    <td className={`${td} ${wideOnly} text-right`}>
                       {acc.total_paid !== null ? (
                         <Figure cents={acc.total_paid} muted />
                       ) : (
@@ -270,21 +272,21 @@ export function AccountsSection({ snapshotId, accounts, previousAccounts, editMo
                 )
               )}
               {editingId === 'new' && renderEditRow()}
-              {/* Ghost rows: gone since the prior snapshot, shown so the Muutos column
+              {/* Departed accounts: gone since the prior snapshot, shown so the Muutos column
                   adds up to the net worth change. Read-only, no row actions. */}
-              {ghosts.map((ghost) => (
-                <tr key={`ghost-${ghost.account.id}`} className="border-b border-rule last:border-0 text-ink-muted">
+              {departed.map((row) => (
+                <tr key={`departed-${row.account.id}`} className="border-b border-rule last:border-0 text-ink-muted">
                   <td className={td} title={t.accountGone}>
-                    <span className="line-through">{ghost.account.name}</span>
+                    <span className="line-through">{row.account.name}</span>
                     <span className="sr-only"> ({t.accountGone})</span>
                   </td>
-                  <td className={td}>{typeLabel(ghost.account.type)}</td>
-                  <td className={`${td} ${wideOnly}`}>{ghost.account.category}</td>
+                  <td className={td}>{typeLabel(row.account.type)}</td>
+                  <td className={`${td} ${wideOnly}`}>{row.account.category}</td>
                   <td className={`${td} text-right`}>
                     <Figure cents={0} muted />
                   </td>
-                  {renderChange(ghost)}
-                  <td className={`${td} text-right`}>—</td>
+                  {renderChange(row)}
+                  <td className={`${td} ${wideOnly} text-right`}>—</td>
                   {editMode && <td className={td} />}
                 </tr>
               ))}

@@ -102,7 +102,7 @@ describe('computeAccountChanges', () => {
     ]);
   });
 
-  test('an account only in the prior snapshot becomes a ghost row after the current accounts', () => {
+  test('an account only in the prior snapshot becomes a departed row after the current accounts', () => {
     const closedSavings = asset('Vanha säästötili', 120000);
     const paidOffLoan = liability('Kulutusluotto', 300000);
     const rows = computeAccountChanges(
@@ -111,20 +111,20 @@ describe('computeAccountChanges', () => {
     );
     expect(rows).toEqual([
       expect.objectContaining({ kind: 'matched', account: expect.objectContaining({ name: 'Käyttötili' }) }),
-      { kind: 'ghost', account: closedSavings, balanceChange: -120000, netWorthEffect: -120000, unchanged: false },
-      { kind: 'ghost', account: paidOffLoan, balanceChange: -300000, netWorthEffect: 300000, unchanged: false },
+      { kind: 'departed', account: closedSavings, balanceChange: -120000, netWorthEffect: -120000, unchanged: false },
+      { kind: 'departed', account: paidOffLoan, balanceChange: -300000, netWorthEffect: 300000, unchanged: false },
     ]);
   });
 
-  test('a renamed account appears as one new row plus one ghost row', () => {
+  test('a renamed account appears as one new row plus one departed row', () => {
     const rows = computeAccountChanges([asset('Säästötili (OP)', 500000)], [asset('Säästötili', 500000)]);
     expect(rows).toEqual([
       expect.objectContaining({ kind: 'new', account: expect.objectContaining({ name: 'Säästötili (OP)' }), balanceChange: 500000 }),
-      expect.objectContaining({ kind: 'ghost', account: expect.objectContaining({ name: 'Säästötili' }), balanceChange: -500000 }),
+      expect.objectContaining({ kind: 'departed', account: expect.objectContaining({ name: 'Säästötili' }), balanceChange: -500000 }),
     ]);
   });
 
-  test('keeps current accounts in their given order, then ghosts in prior order', () => {
+  test('keeps current accounts in their given order, then departed accounts in prior order', () => {
     const rows = computeAccountChanges(
       [asset('C', 1), asset('A', 1), asset('New', 1), asset('B', 1)],
       [asset('A', 1), asset('Gone 1', 1), asset('B', 1), asset('Gone 2', 1), asset('C', 1)]
@@ -134,8 +134,8 @@ describe('computeAccountChanges', () => {
       ['matched', 'A'],
       ['new', 'New'],
       ['matched', 'B'],
-      ['ghost', 'Gone 1'],
-      ['ghost', 'Gone 2'],
+      ['departed', 'Gone 1'],
+      ['departed', 'Gone 2'],
     ]);
   });
 
@@ -162,7 +162,7 @@ describe('computeAccountChanges', () => {
     expect(rows!.map((r) => [r.kind, r.balanceChange])).toEqual([
       ['matched', 200],
       ['matched', 200],
-      ['ghost', -50],
+      ['departed', -50],
     ]);
   });
 
