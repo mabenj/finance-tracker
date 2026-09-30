@@ -7,6 +7,10 @@ function plural(n: number, one: string, many: string): string {
   return n === 1 ? one : many;
 }
 
+// Shared by the headline monthly figures and the Sankey diagram's residual node.
+const SURPLUS = "Ylijäämä";
+const DEFICIT = "Alijäämä";
+
 export const t = {
   // ── Shared / generic ──────────────────────────────────────────────
   cancel: "Peruuta",
@@ -142,8 +146,10 @@ export const t = {
   netWorth: "Nettovarallisuus",
   vs: "vs",
   noPreviousSnapshot: "Ei edellistä kuukausikatsausta",
-  previous: "Edellinen",
-  current: "Nykyinen",
+
+  // ── Monthly figures (headline; Tulot/Menot reuse `income`/`expenses`) ──
+  surplus: SURPLUS,
+  deficit: DEFICIT,
 
   // ── Sankey ────────────────────────────────────────────────────────
   sankeyHeading: "Tulo- ja menovirrat",
@@ -151,7 +157,7 @@ export const t = {
   sankeyNoData: "Ei tietoja Sankey-kaaviossa.",
   // Sankey node display labels (the diagram's IDs stay English; only labels are localized).
   sankeyUnspecifiedIncome: "Erittelemätön tulo",
-  sankeyDeficit: "Alijäämä",
-  sankeySurplus: "Ylijäämä",
+  sankeyDeficit: DEFICIT,
+  sankeySurplus: SURPLUS,
   sankeyBudget: "Budjetti",
 };

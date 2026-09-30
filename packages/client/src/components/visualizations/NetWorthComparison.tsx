@@ -1,18 +1,7 @@
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  CartesianGrid,
-  ReferenceLine,
-} from 'recharts';
-import { computeNetWorthDelta, sumNetWorth, buildAccountChartData } from '../../lib/net-worth';
+import { computeNetWorthDelta, sumNetWorth } from '../../lib/net-worth';
+import { computeMonthlyFigures, type Amounted } from '../../lib/monthly-figures';
 import { formatEurCents } from '../../lib/currency';
 import { t } from '../../lib/strings';
-import { useTheme, chartPalette } from '../../lib/theme';
 import { Figure } from '../ui/Figure';
 import { Delta } from '../ui/Delta';
 
@@ -25,25 +14,24 @@ interface Account {
 interface Props {
   accounts: Account[];
   previousAccounts: Account[] | null;
+  incomes: Amounted[];
+  expenses: Amounted[];
 }
 
-export function NetWorthComparison({ accounts, previousAccounts }: Props) {
-  const { theme } = useTheme();
-  const chart = chartPalette[theme];
+export function NetWorthComparison({ accounts, previousAccounts, incomes, expenses }: Props) {
   const netWorth = sumNetWorth(accounts);
   const prevNetWorth = previousAccounts !== null ? sumNetWorth(previousAccounts) : null;
 
   const delta = prevNetWorth !== null ? computeNetWorthDelta(netWorth, prevNetWorth) : null;
 
-  const chartData = buildAccountChartData(accounts, previousAccounts);
-
-  const formatAxis = (v: number) =>
-    new Intl.NumberFormat('fi-FI', {
-      style: 'currency',
-      currency: 'EUR',
-      notation: 'compact',
-      maximumFractionDigits: 0,
-    }).format(v / 100);
+  // Plain figures with no month-over-month comparison: a half-entered month
+  // (variable items still at €0) would otherwise show misleading drops.
+  const { totalIncome, totalExpenses, residual } = computeMonthlyFigures(incomes, expenses);
+  const monthlyFigures = [
+    { label: t.income, cents: totalIncome },
+    { label: t.expenses, cents: totalExpenses },
+    { label: residual.kind === 'surplus' ? t.surplus : t.deficit, cents: residual.amount },
+  ];
 
   return (
     <div className="card p-5 sm:p-6">
@@ -69,49 +57,19 @@ export function NetWorthComparison({ accounts, previousAccounts }: Props) {
         </div>
       </div>
 
-      {/* Per-account comparison */}
-      <div className="pt-5">
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData} margin={{ top: 5, right: 12, left: 12, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} vertical={false} />
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 11, fill: chart.axis }}
-              tickLine={{ stroke: chart.grid }}
-              axisLine={{ stroke: chart.grid }}
-              interval={0}
-              angle={-30}
-              textAnchor="end"
-              height={60}
-            />
-            <YAxis
-              tickFormatter={formatAxis}
-              tick={{ fontSize: 11, fill: chart.axis }}
-              tickLine={{ stroke: chart.grid }}
-              axisLine={{ stroke: chart.grid }}
-              width={80}
-            />
-            <Tooltip
-              cursor={{ fill: theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(38,69,122,0.06)' }}
-              formatter={(value: number) => formatEurCents(value)}
-              contentStyle={{
-                background: 'var(--sheet)',
-                border: '1px solid var(--rule)',
-                borderRadius: 8,
-                boxShadow: 'var(--shadow-pop)',
-                fontSize: 12,
-              }}
-              labelStyle={{ fontWeight: 600, color: 'var(--ink)' }}
-            />
-            <Legend wrapperStyle={{ fontSize: 12, color: chart.legend }} />
-            <ReferenceLine y={0} stroke={chart.zero} strokeWidth={1} />
-            {prevNetWorth !== null && (
-              <Bar dataKey="Previous" name={t.previous} fill={chart.previous} radius={[2, 2, 0, 0]} />
-            )}
-            <Bar dataKey="Current" name={t.current} fill={chart.current} radius={[2, 2, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      {/* The month's cash flow: income, expenses, and the surplus or deficit */}
+      <dl className="grid gap-x-6 gap-y-2 pt-5 sm:grid-cols-3">
+        {monthlyFigures.map(({ label, cents }) => (
+          <div key={label} className="flex items-baseline justify-between gap-3 sm:block">
+            <dt className="text-xs font-medium uppercase tracking-wide text-ink-muted sm:mb-1">
+              {label}
+            </dt>
+            <dd>
+              <Figure cents={cents} className="text-base font-medium sm:text-lg" />
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

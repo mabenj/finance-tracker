@@ -71,6 +71,8 @@ export function SnapshotDetail({ snapshot, editMode, onUpdate }: Props) {
       <NetWorthComparison
         accounts={snapshot.accounts}
         previousAccounts={snapshot.previousSnapshot?.accounts ?? null}
+        incomes={snapshot.incomes}
+        expenses={snapshot.expenses}
       />
 
       <AccountsSection

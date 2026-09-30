@@ -16,30 +16,6 @@ export type Theme = 'light' | 'dark';
 
 const STORAGE_KEY = 'theme';
 
-// Recharts sets SVG fills/strokes from JS and can't read CSS variables, so the
-// chart colors are mirrored here per theme. Keep in sync with index.css tokens.
-export const chartPalette: Record<
-  Theme,
-  { current: string; previous: string; grid: string; axis: string; zero: string; legend: string }
-> = {
-  light: {
-    current: '#26457a', // --accent
-    previous: '#9aa3b2', // muted slate, subordinate to current
-    grid: '#e6e9ee', // --rule
-    axis: '#5b6472', // --ink-muted
-    zero: '#c9ced6', // --rule-strong
-    legend: '#5b6472', // --ink-muted
-  },
-  dark: {
-    current: '#6f9ae0', // --accent (dark)
-    previous: '#7c88a8', // lighter slate, subordinate to current
-    grid: '#2a3242', // --rule (dark)
-    axis: '#a2acbd', // --ink-muted (dark)
-    zero: '#3a4356', // --rule-strong (dark)
-    legend: '#a2acbd', // --ink-muted (dark)
-  },
-};
-
 function getInitialTheme(): Theme {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
