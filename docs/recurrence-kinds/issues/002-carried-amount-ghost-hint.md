@@ -1,7 +1,7 @@
 ---
 title: Carried amount stamping and "ed. kk" ghost hint
-labels: [ready-for-agent]
-status: open
+labels: []
+status: closed
 blocked-by: [001-tri-state-recurrence.md]
 ---
 
@@ -40,3 +40,7 @@ Scope:
 ## Blocked by
 
 - [001 — Tri-state recurrence for expenses and incomes](001-tri-state-recurrence.md)
+
+## Resolution
+
+Implemented in `40dc8e9` (ADR: `docs/recurrence-kinds/adr/0001-stamped-carried-amount.md`).

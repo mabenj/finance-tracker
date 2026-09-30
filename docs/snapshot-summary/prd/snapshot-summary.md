@@ -1,7 +1,7 @@
 ---
 title: Snapshot summary — replace the per-account bar chart with per-account change and monthly figures
-labels: [ready-for-agent]
-status: ready
+labels: []
+status: done
 ---
 
 # Snapshot summary — replace the per-account bar chart with per-account change and monthly figures
@@ -118,3 +118,7 @@ Remove the bar chart and keep the net worth headline (the figure, plus its chang
 - The comparison baseline everywhere is the most recent prior snapshot, as the glossary defines for **net worth** change. It is not necessarily the previous calendar month.
 - Ghost rows exist so that the change column adds up to the headline change. If they turn out to be visual noise in practice, they can be removed without affecting the rest of the design.
 - A renamed account showing as "new + ghost" for one month is a known, accepted limitation of matching by name.
+
+## Resolution
+
+Delivered by issues 001 (`2d2a26b`) and 002 (`5614785`, `0d2c60f`). Departures from the text above: Maksettu yhteensä is also hidden on narrow screens, and "ghost rows" are named **departed accounts** per the glossary.

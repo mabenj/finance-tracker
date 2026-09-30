@@ -1,7 +1,7 @@
 ---
 title: Recurrence kinds — fixed and variable carry-forward
-labels: [ready-for-agent]
-status: ready
+labels: []
+status: done
 ---
 
 # Recurrence kinds — fixed and variable carry-forward
@@ -85,3 +85,7 @@ In the forms, the familiar "Toistuva" checkbox stays; checking it reveals an inl
 - Vocabulary is recorded in CONTEXT.md (*Recurrence*, *One-off*, *Fixed*, *Variable*, *Carried amount*); use these terms in code identifiers and copy discussions.
 - An ADR for the stamped-at-carry-time carried amount was proposed during design (hard to backfill later, surprising without context, real trade-off vs read-time computation); write it as part of implementation.
 - The expected monthly workflow this enables: variable items start at €0 and grow through the month via ± quick-adjust folds, with the ghost hint as the pacing reference.
+
+## Resolution
+
+Delivered by issues 001 (`e9e3668`) and 002 (`40dc8e9`).

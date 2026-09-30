@@ -1,7 +1,7 @@
 ---
 title: Replace the per-account bar chart with monthly figures in the net worth headline
-labels: [ready-for-agent]
-status: open
+labels: []
+status: closed
 blocked-by: []
 ---
 
@@ -39,3 +39,7 @@ Scope:
 ## Blocked by
 
 None (can start immediately).
+
+## Resolution
+
+Implemented in `2d2a26b`.

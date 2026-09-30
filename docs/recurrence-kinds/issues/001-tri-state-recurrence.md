@@ -1,7 +1,7 @@
 ---
 title: Tri-state recurrence for expenses and incomes, end-to-end
-labels: [ready-for-agent]
-status: open
+labels: []
+status: closed
 blocked-by: []
 ---
 
@@ -45,3 +45,7 @@ Scope:
 ## Blocked by
 
 None - can start immediately
+
+## Resolution
+
+Implemented in `e9e3668`.

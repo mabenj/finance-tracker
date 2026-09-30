@@ -1,7 +1,7 @@
 ---
 title: Muutos column — per-account change in the accounts table
-labels: [ready-for-agent]
-status: open
+labels: []
+status: closed
 blocked-by: []
 ---
 
@@ -46,3 +46,7 @@ Scope:
 ## Blocked by
 
 None (can start immediately).
+
+## Resolution
+
+Implemented in `5614785`; narrow-screen fit (Maksettu yhteensä also hidden on phones) and the *departed account* naming followed in `0d2c60f`.
