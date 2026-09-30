@@ -32,6 +32,9 @@ _Avoid_: savings, säästöt
 **Deficit (Alijäämä)**:
 The negative residual of a snapshot: expenses minus income when expenses are greater. The exact mirror of surplus.
 
+**Net worth (Nettovarallisuus)**:
+The sum of a snapshot's asset balances minus its liability balances. A snapshot's net worth change is measured against the most recent prior snapshot, which is not necessarily the previous calendar month.
+
 **Carried amount**:
 The amount an expense or income had in the previous snapshot at the moment it was carried forward; absent on items created by hand within the month.
 _Avoid_: ghost value, previous amount
