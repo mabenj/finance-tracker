@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { trpc } from '../../lib/trpc';
 import { MONTH_NAMES } from '../../lib/date';
 import { cn } from '../../lib/cn';
@@ -7,9 +7,8 @@ import { t } from '../../lib/strings';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { IconButton } from '../ui/IconButton';
 import { IconMenu, IconPlus, IconX } from '../ui/icons';
-import { NewSnapshotDialog } from '../dashboard/NewSnapshotDialog';
 
-// Lets any page inside the shell open the "new snapshot" dialog.
+// Lets any page inside the shell start the new-snapshot wizard.
 const NewSnapshotContext = createContext<() => void>(() => {});
 export const useOpenNewSnapshot = () => useContext(NewSnapshotContext);
 
@@ -78,14 +77,14 @@ function Sidebar({ onNew }: { onNew: () => void }) {
 // bar, and a centred content column.
 export function AppShell({ bar, actions, children }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [newOpen, setNewOpen] = useState(false);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => setDrawerOpen(false), [pathname]);
 
   const openNew = () => {
     setDrawerOpen(false);
-    setNewOpen(true);
+    navigate('/snapshots/new');
   };
 
   return (
@@ -123,8 +122,6 @@ export function AppShell({ bar, actions, children }: Props) {
 
           <main className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-8">{children}</main>
         </div>
-
-        <NewSnapshotDialog open={newOpen} onClose={() => setNewOpen(false)} />
       </div>
     </NewSnapshotContext.Provider>
   );

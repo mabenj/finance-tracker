@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { trpc } from './lib/trpc';
 import { Dashboard } from './pages/Dashboard';
 import { Snapshot } from './pages/Snapshot';
+import { NewSnapshot } from './pages/NewSnapshot';
 import { ToastProvider } from './lib/toast';
 import { ThemeProvider } from './lib/theme';
 
@@ -26,6 +27,7 @@ export function App() {
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/snapshots/new" element={<NewSnapshot />} />
                 <Route path="/snapshots/:id" element={<Snapshot />} />
               </Routes>
             </BrowserRouter>

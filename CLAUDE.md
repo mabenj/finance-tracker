@@ -53,7 +53,7 @@ The Vite dev server proxies `/trpc` to `http://localhost:3001`. In production, b
 ### Client (`packages/client`)
 
 - tRPC client: `src/lib/trpc.ts` — `createTRPCReact<AppRouter>()` pointing to `/trpc`
-- Routes: `/` → Dashboard, `/snapshots/:id` → Snapshot detail
+- Routes: `/` → Dashboard, `/snapshots/new` → new-snapshot wizard, `/snapshots/:id` → Snapshot detail
 - Both pages render inside `src/components/layout/AppShell.tsx` (month sidebar / mobile drawer, sticky top bar). Colors are CSS variables in `src/index.css` (light + dark), mapped to Tailwind names in `tailwind.config.ts`; the font is Inter
 - `SnapshotDetail` is the master component; it owns all sub-sections: `AccountsSection`, `IncomeSection`, `ExpenseTree`, `NetWorthComparison`, `SankeyDiagram`
 
@@ -74,5 +74,6 @@ All monetary amounts are stored as **integer EUR cents** (e.g. €12.34 = `1234`
 - `src/lib/currency.ts` — formats EUR cents using `de-DE` locale
 - `src/lib/sum-tree.ts` — DFS to aggregate expense category totals
 - `src/lib/sankey-builder.ts` — builds D3-Sankey graph (income → expenses → savings/deficit)
+- `src/lib/snapshot-draft.ts` — the new-snapshot wizard's in-memory draft, seeded by mirroring carry-forward; `src/lib/commit-draft.ts` saves it into a freshly created snapshot (matches carried rows by name/occurrence, sends only differences via the existing CRUD mutations)
 - `src/lib/net-worth.ts` — computes net worth, its delta, and per-account change vs. the prior snapshot (matched/new/departed rows)
 - `src/components/ui/toast.tsx` — toast notifications via React context
