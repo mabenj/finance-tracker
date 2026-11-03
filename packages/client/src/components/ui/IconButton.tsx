@@ -11,7 +11,7 @@ interface Props extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 // ≥3:1 non-text contrast floor at rest and gets a matching wash on hover.
 const TONES: Record<Tone, string> = {
   muted: 'text-ink-muted hover:text-ink hover:bg-paper',
-  accent: 'text-accent hover:text-accent-hover hover:bg-accent-wash',
+  accent: 'text-accent-ink hover:text-accent-ink-hover hover:bg-accent-wash',
   gain: 'text-gain hover:text-gain-hover hover:bg-gain-wash',
   loss: 'text-loss hover:text-loss-hover hover:bg-loss-wash',
 };

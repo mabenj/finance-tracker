@@ -54,6 +54,7 @@ The Vite dev server proxies `/trpc` to `http://localhost:3001`. In production, b
 
 - tRPC client: `src/lib/trpc.ts` — `createTRPCReact<AppRouter>()` pointing to `/trpc`
 - Routes: `/` → Dashboard, `/snapshots/:id` → Snapshot detail
+- Both pages render inside `src/components/layout/AppShell.tsx` (month sidebar / mobile drawer, sticky top bar). Colors are CSS variables in `src/index.css` (light + dark), mapped to Tailwind names in `tailwind.config.ts`; the font is Inter
 - `SnapshotDetail` is the master component; it owns all sub-sections: `AccountsSection`, `IncomeSection`, `ExpenseTree`, `NetWorthComparison`, `SankeyDiagram`
 
 ### Database schema

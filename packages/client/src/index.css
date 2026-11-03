@@ -3,85 +3,97 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Design tokens — "Tilinpäätös / The Statement"
-   Single source of truth. Every color/radius/shadow decision derives from here;
-   the Tailwind theme (tailwind.config.ts) maps these vars to utilities.
+   Design tokens — "Apricot": neutral grey/white surfaces with a single warm
+   orange accent, reserved for actions, the active month and proportion bars.
+   Single source of truth; tailwind.config.ts maps these vars to utilities.
    ──────────────────────────────────────────────────────────────────────────── */
 @layer base {
   :root {
-    /* Surfaces — cool paper on the desk, white statement sheets on top */
-    --paper: #f3f5f8;
+    /* Surfaces: page, cards, sidebar, translucent sticky top bar */
+    --paper: #f6f6f7;
     --sheet: #ffffff;
+    --side: #ffffff;
+    --topbar: rgba(246, 246, 247, 0.85);
 
-    /* Ink — text hierarchy (deep desaturated navy, never pure black) */
-    --ink: #1c2433;
-    --ink-muted: #5b6472;
-    --ink-faint: #98a0ad;
+    /* Text hierarchy */
+    --ink: #1f2328;
+    --ink-muted: #5f656e;
+    --ink-faint: #9aa0a8;
 
-    /* Accent — brand / interactive. Deliberately quiet; used sparingly. */
-    --accent: #26457a;
-    --accent-hover: #1e3a6b;
-    --accent-wash: #eaf0f9;
+    /* Accent: solid fills (buttons, active month) fade from accent to accent-2;
+       accent-ink is the text-safe shade for links and icon actions. */
+    --accent: #f26b1d;
+    --accent-hover: #e05a0f;
+    --accent-2: #fb923c;
+    --accent-wash: #fff0e5;
+    --accent-ink: #b4490b;
+    --accent-ink-hover: #8f3a08;
 
-    /* Semantic gain / loss — reserved ONLY for financial direction, never chrome */
-    --gain: #1b7a55;
-    --gain-hover: #156045;
-    --gain-wash: #e7f3ec;
-    --loss: #b23a48;
-    --loss-hover: #8f2e39;
-    --loss-wash: #fbecee;
+    /* Semantic gain / loss — reserved for financial direction */
+    --gain: #1f8a5b;
+    --gain-hover: #18704a;
+    --gain-wash: #e2f4ea;
+    --loss: #d1434b;
+    --loss-hover: #b3353c;
+    --loss-wash: #fde8e9;
 
-    /* Rules & lines — hairlines and the accountant's total rules */
-    --rule: #e6e9ee;
-    --rule-strong: #c9ced6;
-    --rule-ink: #8b93a1;
+    /* Neutral badge fill and empty proportion-bar track */
+    --neutral-wash: #f0f0f1;
+    --track: #eeeceb;
 
-    /* Scrim + elevation — navy-tinted so shadows belong to the ink family */
-    --overlay: rgba(20, 26, 38, 0.45);
-    --shadow-sheet: 0 1px 2px rgba(28, 36, 51, 0.04), 0 2px 6px rgba(28, 36, 51, 0.06);
-    --shadow-pop: 0 12px 32px -8px rgba(28, 36, 51, 0.28), 0 4px 12px rgba(28, 36, 51, 0.1);
+    /* Lines */
+    --rule: #e7e5e4;
+    --rule-strong: #d6d3d1;
+    --rule-ink: #a8a29e;
 
-    /* Text placed on a solid semantic fill (accent/gain/loss buttons, toasts).
-       Light theme: fills are deep, so on-fill text is white. */
+    --overlay: rgba(17, 19, 22, 0.45);
+    --shadow-sheet: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-pop: 0 16px 40px -12px rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.08);
+
+    /* Text on a solid accent/gain/loss fill */
     --on-fill: #ffffff;
 
     color-scheme: light;
   }
 
-  /* ── Dark theme ──────────────────────────────────────────────────────────
-     Same contract, inverted. Surfaces darken; ink lightens; the semantic
-     accent/gain/loss become light "chips" that carry dark on-fill text — so
-     they read as bright figures/links on the dark sheet while their solid
-     button/toast fills stay legible. Every pair verified for WCAG AA.       */
+  /* Dark theme: same contract on cool charcoal. Accent/gain/loss become light
+     chips, so on-fill text flips to the page colour. */
   :root[data-theme='dark'] {
-    --paper: #0f1420;
-    --sheet: #1a2130;
+    --paper: #121417;
+    --sheet: #1c2024;
+    --side: #181b1f;
+    --topbar: rgba(18, 20, 23, 0.8);
 
-    --ink: #e7eaf0;
-    --ink-muted: #a2acbd;
-    --ink-faint: #6d7789;
+    --ink: #eef0f2;
+    --ink-muted: #a3aab3;
+    --ink-faint: #6f7680;
 
-    --accent: #6f9ae0;
-    --accent-hover: #86abe9;
-    --accent-wash: #1f2d43;
+    --accent: #fb8a3c;
+    --accent-hover: #fc9d5a;
+    --accent-2: #fdba74;
+    --accent-wash: rgba(251, 138, 60, 0.15);
+    --accent-ink: #fdba8c;
+    --accent-ink-hover: #fed7b5;
 
-    --gain: #4ac08a;
-    --gain-hover: #63cf9d;
-    --gain-wash: #13372a;
-    --loss: #f0687a;
-    --loss-hover: #f5808f;
-    --loss-wash: #3a1c22;
+    --gain: #5fd39a;
+    --gain-hover: #7fe0b0;
+    --gain-wash: rgba(95, 211, 154, 0.14);
+    --loss: #f37c84;
+    --loss-hover: #f6979d;
+    --loss-wash: rgba(243, 124, 132, 0.14);
 
-    --rule: #2a3242;
-    --rule-strong: #3a4356;
-    --rule-ink: #5b6788;
+    --neutral-wash: rgba(255, 255, 255, 0.07);
+    --track: #2c3238;
 
-    --overlay: rgba(3, 6, 12, 0.6);
-    --shadow-sheet: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.35);
-    --shadow-pop: 0 12px 32px -8px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+    --rule: #2c3238;
+    --rule-strong: #3a424a;
+    --rule-ink: #59616b;
 
-    /* Dark theme: fills are light chips, so on-fill text is deep navy. */
-    --on-fill: #0e1420;
+    --overlay: rgba(3, 4, 6, 0.6);
+    --shadow-sheet: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-pop: 0 16px 40px -12px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.4);
+
+    --on-fill: #121417;
 
     color-scheme: dark;
   }
@@ -93,7 +105,8 @@
   body {
     background-color: var(--paper);
     color: var(--ink);
-    font-family: 'Public Sans Variable', system-ui, -apple-system, sans-serif;
+    font-family: 'Inter Variable', system-ui, -apple-system, sans-serif;
+    font-size: 16px;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -111,33 +124,19 @@
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Component classes — the shared vocabulary used across screens.
-   The signature "ledger figure + accountant's rule" lives here.
    ──────────────────────────────────────────────────────────────────────────── */
 @layer components {
-  /* Signature: every monetary figure is a mono, tabular, tightly-set number */
+  /* Every monetary figure uses tabular digits so amounts line up in columns */
   .figure {
-    font-family: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum';
-    letter-spacing: -0.02em;
   }
 
-  /* The accountant's rules: single line above a subtotal, double line below a grand total */
-  .rule-subtotal {
-    border-top: 1px solid var(--rule-strong);
-  }
-  .rule-grand-top {
-    border-top: 1px solid var(--rule-ink);
-  }
-  .rule-grand-bottom {
-    border-bottom: 3px double var(--rule-ink);
-  }
-
-  /* A statement sheet: white surface, hairline, soft navy-tinted lift */
+  /* A surface: white card, hairline ring, barely-there lift */
   .card {
     background-color: var(--sheet);
     border: 1px solid var(--rule);
-    border-radius: 8px;
+    border-radius: 12px;
     box-shadow: var(--shadow-sheet);
   }
 
@@ -145,11 +144,11 @@
   .field {
     width: 100%;
     border: 1px solid var(--rule-strong);
-    border-radius: 4px;
+    border-radius: 8px;
     background-color: var(--sheet);
-    padding: 0.375rem 0.625rem;
-    font-size: 0.875rem;
-    line-height: 1.25rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    line-height: 1.5rem;
     color: var(--ink);
     transition: border-color 120ms ease, box-shadow 120ms ease;
   }
@@ -173,7 +172,7 @@
     background-repeat: no-repeat;
     background-position: right 0.5rem center;
     background-size: 1.1rem;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%235b6472' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%235f656e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
   }
 
   /* Dark theme needs a lighter chevron stroke to stay visible on the dark field */

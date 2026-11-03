@@ -31,7 +31,7 @@ interface Props {
   categories: Category[];
 }
 
-const LABEL_FONT_PX = 11;
+const LABEL_FONT_PX = 13;
 
 export function SankeyDiagram({ incomes, expenses, categories }: Props) {
   const [tooltip, setTooltip] = useState<{
@@ -44,7 +44,7 @@ export function SankeyDiagram({ incomes, expenses, categories }: Props) {
   const graph = buildSankeyGraph(incomes, expenses, categories);
 
   if (graph.nodes.length === 0) {
-    return <p className="text-sm text-ink-muted italic">{t.sankeyNoData}</p>;
+    return <p className="text-base text-ink-muted">{t.sankeyNoData}</p>;
   }
 
   const { nodes, links, width, height } = layoutSankey(graph);
@@ -133,7 +133,7 @@ export function SankeyDiagram({ incomes, expenses, categories }: Props) {
       {tooltip &&
         createPortal(
           <div
-            className="fixed z-50 bg-gray-900 text-white text-xs rounded px-2 py-1 pointer-events-none shadow-lg"
+            className="fixed z-50 bg-gray-900 text-white text-sm rounded-control px-3 py-2 pointer-events-none shadow-lg"
             style={{ left: tooltip.x + 14, top: tooltip.y - 36 }}
           >
             <div className="font-medium">{tooltip.label}</div>

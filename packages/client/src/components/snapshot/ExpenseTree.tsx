@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { trpc } from '../../lib/trpc';
 import { useToast } from '../../lib/toast';
 import {
@@ -54,9 +54,9 @@ interface CategoryNode {
 }
 
 // Small text-action buttons shared by the tree's dense rows.
-const actAccent = 'text-xs text-accent hover:text-accent-hover px-1 disabled:opacity-50';
-const actMuted = 'text-xs text-ink-muted hover:text-ink px-1 disabled:opacity-50';
-const actLoss = 'text-xs text-loss hover:text-loss-hover px-1 disabled:opacity-50';
+const actAccent = 'text-sm font-medium text-accent-ink hover:text-accent-ink-hover px-1 disabled:opacity-50';
+const actMuted = 'text-sm font-medium text-ink-muted hover:text-ink px-1 disabled:opacity-50';
+const actLoss = 'text-sm font-medium text-loss hover:text-loss-hover px-1 disabled:opacity-50';
 
 // Manual order is the single source of truth: categories and expenses are
 // ordered by their stored `position` within each sibling group (id tiebreak).
@@ -209,7 +209,7 @@ function ExpenseRow({
 
   if (editing) {
     return (
-      <div className="flex items-stretch border-b border-rule bg-accent-wash pl-2">
+      <div className="flex items-stretch border-b border-rule bg-accent-wash pl-4">
         <Indent depth={depth + 1} />
         <div className="flex min-w-0 flex-1 flex-col gap-2 py-2 pr-3">
           <div className="flex items-center gap-2">
@@ -236,7 +236,7 @@ function ExpenseRow({
               right-aligned under the amount input. Renders nothing off-kind. */}
           <CarriedHint recurrence={recurrence} carriedAmount={expense.carried_amount} className="self-end" />
           {/* Signed adjustment — fold a delta into the amount above */}
-          <div className="flex flex-wrap items-center gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-base">
             <span className="text-ink-muted">{t.adjust}</span>
             <input
               type="text"
@@ -259,12 +259,12 @@ function ExpenseRow({
               {t.adjustApply}
             </button>
             {formActive && (
-              <span className="figure text-xs text-ink-muted">
+              <span className="figure text-sm text-ink-muted">
                 {formatEurCents(formBase)} → {formatEurCents(formNext)}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-3 text-base">
             <span className="text-ink-muted">{t.categoryLabel}</span>
             <CategoryPicker
               snapshotId={snapshotId}
@@ -280,7 +280,7 @@ function ExpenseRow({
               <button
                 onClick={handleSave}
                 disabled={upsertMut.isLoading}
-                className="rounded-mark bg-accent px-3 py-1 text-xs font-medium text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
+                className="rounded-mark bg-accent px-3 py-1.5 text-sm font-semibold text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
               >
                 {upsertMut.isLoading ? t.saving : t.save}
               </button>
@@ -295,11 +295,11 @@ function ExpenseRow({
   }
 
   return (
-    <div className="flex items-stretch border-b border-rule pl-2 last:border-0 hover:bg-paper">
+    <div className="flex items-stretch border-b border-rule pl-4 last:border-0 hover:bg-paper">
       <Indent depth={depth + 1} />
-      <div className="flex min-w-0 flex-1 items-center justify-between py-1.5 pr-3">
+      <div className="flex min-w-0 flex-1 items-center justify-between py-2.5 pr-5">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm text-ink">{expense.name}</span>
+          <span className="truncate text-base text-ink-muted">{expense.name}</span>
           <RecurrenceMarker recurrence={expense.recurrence} className="shrink-0" />
         </span>
         {editMode && adjusting ? (
@@ -320,19 +320,19 @@ function ExpenseRow({
               aria-label={t.adjust}
             />
             {quickActive ? (
-              <span className="figure text-sm text-ink-muted">
+              <span className="figure text-base text-ink-muted">
                 {formatEurCents(baseCents)} →{' '}
                 <span className="font-medium text-ink">{formatEurCents(quickNext)}</span>
               </span>
             ) : (
-              <span className="figure text-sm text-ink">{formatEurCents(baseCents)}</span>
+              <span className="figure text-base text-ink">{formatEurCents(baseCents)}</span>
             )}
             <button
               type="button"
               onClick={() => saveQuickFold()}
               disabled={!quickActive || quickAdjustMut.isLoading}
               title={t.adjustApply}
-              className="rounded-mark bg-accent px-2 py-1 text-xs font-medium text-onFill transition-colors hover:bg-accent-hover disabled:opacity-40"
+              className="rounded-mark bg-accent px-2.5 py-1.5 text-sm font-semibold text-onFill transition-colors hover:bg-accent-hover disabled:opacity-40"
             >
               {t.adjustApply}
             </button>
@@ -348,7 +348,7 @@ function ExpenseRow({
         ) : (
           <span className="ml-4 flex shrink-0 items-center gap-3">
             <CarriedHint recurrence={expense.recurrence} carriedAmount={expense.carried_amount} />
-            <Figure cents={expense.amount} />
+            <Figure cents={expense.amount} muted />
             {editMode && (
               <>
                 <ReorderButtons
@@ -362,7 +362,7 @@ function ExpenseRow({
                   onClick={openQuickAdjust}
                   title={t.adjust}
                   aria-label={t.adjust}
-                  className="px-1 text-sm font-semibold leading-none text-accent hover:text-accent-hover"
+                  className="px-1 text-base font-semibold leading-none text-accent-ink hover:text-accent-ink-hover"
                 >
                   ±
                 </button>
@@ -425,7 +425,7 @@ function AddExpenseRow({
   }
 
   return (
-    <div className="flex items-stretch border-b border-rule bg-accent-wash pl-2">
+    <div className="flex items-stretch border-b border-rule bg-accent-wash pl-4">
       <Indent depth={depth + 1} />
       <div className="flex min-w-0 flex-1 flex-col gap-2 py-2 pr-3">
         <div className="flex items-center gap-2">
@@ -448,7 +448,7 @@ function AddExpenseRow({
             aria-label={t.amount}
           />
         </div>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-3 text-base">
           <span className="text-ink-muted">{t.categoryLabel}</span>
           <CategoryPicker
             snapshotId={snapshotId}
@@ -464,7 +464,7 @@ function AddExpenseRow({
             <button
               onClick={handleSave}
               disabled={upsertMut.isLoading}
-              className="rounded-mark bg-accent px-3 py-1 text-xs font-medium text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
+              className="rounded-mark bg-accent px-3 py-1.5 text-sm font-semibold text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {upsertMut.isLoading ? t.saving : t.add}
             </button>
@@ -481,6 +481,8 @@ function AddExpenseRow({
 type MoveFn = (scopeId: number | null, siblingIds: number[], index: number, dir: 'up' | 'down') => void;
 
 interface CategoryNodeRowProps {
+  /** Largest top-level subtotal; scales the read-mode share bars. */
+  maxTopTotal: number;
   node: CategoryNode;
   depth: number;
   index: number;
@@ -501,6 +503,7 @@ interface CategoryNodeRowProps {
 }
 
 function CategoryNodeRow({
+  maxTopTotal,
   node,
   depth,
   index,
@@ -534,6 +537,7 @@ function CategoryNodeRow({
   } | null>(null);
 
   const subtotal = totals.get(node.cat.id) ?? 0;
+  const showBar = depth === 0 && !editMode && maxTopTotal > 0;
 
   const updateMut = trpc.categories.update.useMutation({
     onSuccess: () => { onUpdate(); setRenaming(false); },
@@ -563,12 +567,12 @@ function CategoryNodeRow({
       <div
         onClick={() => { if (hasContent && !renaming) onToggleCollapse(node.cat.id); }}
         className={cn(
-          'flex items-stretch border-b border-rule bg-paper pl-2',
-          hasContent && !renaming && 'cursor-pointer hover:bg-rule'
+          'relative flex items-stretch border-b border-rule pl-4',
+          hasContent && !renaming && 'cursor-pointer hover:bg-paper'
         )}
       >
         <Indent depth={depth} />
-        <div className="flex min-w-0 flex-1 items-center justify-between py-1.5 pr-3">
+        <div className={cn('flex min-w-0 flex-1 items-center justify-between pr-5', showBar ? 'pb-6 pt-3' : 'py-3')}>
           <span className="flex min-w-0 items-center">
             <span className="flex w-5 shrink-0 items-center">
               {hasContent && (
@@ -577,7 +581,7 @@ function CategoryNodeRow({
                   aria-label={collapsed ? t.expandCategory : t.collapseCategory}
                   className="flex items-center text-ink-muted hover:text-ink"
                 >
-                  <IconChevron expanded={!collapsed} className="w-3.5 h-3.5" />
+                  <IconChevron expanded={!collapsed} className="w-4 h-4" />
                 </button>
               )}
             </span>
@@ -605,16 +609,16 @@ function CategoryNodeRow({
               </span>
             ) : (
               <span className="flex min-w-0 items-center gap-2">
-                <span className={cn('truncate text-sm font-medium', hasContent ? 'text-ink' : 'text-ink-muted')}>
+                <span className={cn('truncate text-base font-medium', hasContent ? 'text-ink' : 'text-ink-muted')}>
                   {node.cat.name}
                 </span>
-                {!hasContent && <span className="shrink-0 text-xs font-normal text-ink-muted">{t.emptyCategory}</span>}
+                {!hasContent && <span className="shrink-0 text-sm font-normal text-ink-muted">{t.emptyCategory}</span>}
               </span>
             )}
           </span>
 
           <span className="ml-4 flex shrink-0 items-center gap-3">
-            <span className="figure text-sm font-medium text-ink-muted">
+            <span className="figure text-base font-medium text-ink">
               {formatEurCents(subtotal)}
             </span>
             {editMode && !renaming && (
@@ -642,11 +646,20 @@ function CategoryNodeRow({
             )}
           </span>
         </div>
+        {/* Share of the largest top-level category, shown when reading. */}
+        {showBar && (
+          <span className="pointer-events-none absolute bottom-3 left-[2.25rem] right-5 h-1.5 overflow-hidden rounded-full bg-track" aria-hidden="true">
+            <span
+              className="block h-full rounded-full bg-gradient-to-r from-accent to-accent-2"
+              style={{ width: `${(subtotal / maxTopTotal) * 100}%` }}
+            />
+          </span>
+        )}
       </div>
 
       {/* Add subcategory row */}
       {addingSubcat && (
-        <div className="flex items-stretch border-b border-rule bg-accent-wash pl-2">
+        <div className="flex items-stretch border-b border-rule bg-accent-wash pl-4">
           <Indent depth={depth + 1} />
           <div className="flex min-w-0 flex-1 items-center gap-2 py-2 pr-3">
             <input
@@ -663,7 +676,7 @@ function CategoryNodeRow({
             <button
               onClick={() => createSubcatMut.mutate({ snapshotId, name: subcatName.trim(), parentId: node.cat.id })}
               disabled={createSubcatMut.isLoading}
-              className="rounded-mark bg-accent px-2 py-1 text-xs font-medium text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
+              className="rounded-mark bg-accent px-2.5 py-1.5 text-sm font-semibold text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {t.add}
             </button>
@@ -680,6 +693,7 @@ function CategoryNodeRow({
           {node.children.map((child, i) => (
             <CategoryNodeRow
               key={child.cat.id}
+              maxTopTotal={maxTopTotal}
               node={child}
               depth={depth + 1}
               index={i}
@@ -850,7 +864,20 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
     return ids;
   }, [tree]);
 
-  const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set());
+  // Reading starts with categories collapsed (an overview); editing opens everything.
+  const [collapsedIds, setCollapsedIds] = useState<Set<number>>(() =>
+    editMode ? new Set() : new Set(collapsibleIds)
+  );
+  const modeMounted = useRef(false);
+  useEffect(() => {
+    if (!modeMounted.current) {
+      modeMounted.current = true;
+      return;
+    }
+    setCollapsedIds(editMode ? new Set() : new Set(collapsibleIds));
+  }, [editMode]);
+
+  const maxTopTotal = Math.max(0, ...tree.map((n) => totals.get(n.cat.id) ?? 0));
 
   const allCollapsed =
     collapsibleIds.length > 0 && collapsibleIds.every((id) => collapsedIds.has(id));
@@ -880,26 +907,27 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
 
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold text-ink">{t.expenses}</h2>
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <h2 className="text-xl font-bold text-ink">{t.expenses}</h2>
         {collapsibleIds.length > 0 && (
-          <button onClick={toggleAll} className="text-xs text-ink-muted hover:text-ink">
+          <button onClick={toggleAll} className="text-sm text-ink-muted hover:text-ink">
             {allCollapsed ? t.expandAll : t.collapseAll}
           </button>
         )}
       </div>
       <div className="card overflow-hidden">
         {allCategories.length === 0 && expenses.length === 0 && !editMode ? (
-          <div className="py-8 text-center text-sm text-ink-muted">{t.noExpensesView}</div>
+          <div className="px-5 py-10 text-center text-base text-ink-muted">{t.noExpensesView}</div>
         ) : (
           <>
             {tree.length === 0 && editMode && (
-              <div className="py-4 text-center text-sm text-ink-muted">{t.noCategories}</div>
+              <div className="py-4 text-center text-base text-ink-muted">{t.noCategories}</div>
             )}
 
             {tree.map((node, index) => (
               <CategoryNodeRow
                 key={node.cat.id}
+                maxTopTotal={maxTopTotal}
                 node={node}
                 depth={0}
                 index={index}
@@ -938,7 +966,7 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
                   <button
                     onClick={() => createCatMut.mutate({ snapshotId, name: topCatName.trim() })}
                     disabled={createCatMut.isLoading}
-                    className="rounded-mark bg-accent px-3 py-1 text-xs font-medium text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
+                    className="rounded-mark bg-accent px-3 py-1.5 text-sm font-semibold text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
                   >
                     {t.add}
                   </button>
@@ -952,7 +980,7 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
               ) : (
                 <button
                   onClick={() => setAddingTopCat(true)}
-                  className="flex w-full items-center gap-1.5 border-t border-rule px-3 py-2.5 text-left text-sm text-accent transition-colors hover:bg-paper hover:text-accent-hover"
+                  className="flex w-full items-center gap-1.5 border-t border-rule px-5 py-3 text-left text-base font-medium text-accent-ink transition-colors hover:bg-paper hover:text-accent-ink-hover"
                 >
                   <IconPlus className="w-4 h-4" />
                   {t.newCategory}
@@ -962,9 +990,9 @@ export function ExpenseTree({ snapshotId, expenses, categories, editMode, onUpda
 
             {/* Grand total — sealed by the accountant's double rule */}
             {(allCategories.length > 0 || expenses.length > 0) && (
-              <div className="flex items-center justify-between border-t-[3px] border-double border-rule-ink bg-paper px-3 py-2.5">
-                <span className="text-sm font-semibold text-ink">{t.totalExpenses}</span>
-                <Figure cents={totalExpenses} className="font-semibold" />
+              <div className="flex items-center justify-between border-t border-rule px-5 py-3.5 font-semibold">
+                <span className="text-base text-ink">{t.totalExpenses}</span>
+                <Figure cents={totalExpenses} />
               </div>
             )}
           </>

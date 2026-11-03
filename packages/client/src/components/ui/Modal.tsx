@@ -93,10 +93,10 @@ export function Modal({ open, onClose, title, children, footer, size = 'sm' }: P
         )}
       >
         <div className="p-5 sm:p-6">
-          <h2 id={titleId} className="font-display text-lg font-semibold text-ink">
+          <h2 id={titleId} className="text-xl font-bold text-ink">
             {title}
           </h2>
-          <div className="mt-3 text-sm text-ink-muted">{children}</div>
+          <div className="mt-3 text-base text-ink-muted">{children}</div>
           {footer && <div className="mt-6 flex justify-end gap-2">{footer}</div>}
         </div>
       </div>

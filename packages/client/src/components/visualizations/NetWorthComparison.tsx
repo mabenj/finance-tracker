@@ -2,8 +2,9 @@ import { computeNetWorthDelta, sumNetWorth } from '../../lib/net-worth';
 import { computeMonthlyFigures, type Amounted } from '../../lib/monthly-figures';
 import { formatEurCents } from '../../lib/currency';
 import { t } from '../../lib/strings';
+import { cn } from '../../lib/cn';
 import { Figure } from '../ui/Figure';
-import { Delta } from '../ui/Delta';
+import { Badge } from '../ui/Badge';
 
 interface Account {
   name: string;
@@ -27,49 +28,44 @@ export function NetWorthComparison({ accounts, previousAccounts, incomes, expens
   // Plain figures with no month-over-month comparison: a half-entered month
   // (variable items still at €0) would otherwise show misleading drops.
   const { totalIncome, totalExpenses, residual } = computeMonthlyFigures(incomes, expenses);
-  const monthlyFigures = [
-    { label: t.income, cents: totalIncome },
-    { label: t.expenses, cents: totalExpenses },
-    { label: residual.kind === 'surplus' ? t.surplus : t.deficit, cents: residual.amount },
+  const surplus = residual.kind === 'surplus';
+
+  const cards: { label: string; value: React.ReactNode; footer?: React.ReactNode }[] = [
+    {
+      label: t.netWorth,
+      value: <Figure cents={netWorth} />,
+      footer:
+        delta !== null && prevNetWorth !== null ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={delta.absolute >= 0 ? 'gain' : 'loss'}>
+              {delta.absolute >= 0 ? '+' : '−'}
+              {formatEurCents(Math.abs(delta.absolute))}
+            </Badge>
+            <span className="text-sm text-ink-muted">
+              {t.vs} <span className="figure">{formatEurCents(prevNetWorth)}</span>
+            </span>
+          </div>
+        ) : (
+          <span className="text-sm text-ink-muted">{t.noPreviousSnapshot}</span>
+        ),
+    },
+    { label: t.income, value: <Figure cents={totalIncome} /> },
+    { label: t.expenses, value: <Figure cents={totalExpenses} /> },
+    {
+      label: surplus ? t.surplus : t.deficit,
+      value: <span className={cn('figure', surplus ? 'text-gain' : 'text-loss')}>{formatEurCents(residual.amount)}</span>,
+    },
   ];
 
   return (
-    <div className="card p-5 sm:p-6">
-      {/* Hero: the closing figure of the statement, sealed by the accountant's double rule */}
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 rule-grand-bottom pb-5">
-        <div>
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-muted">
-            {t.netWorth}
-          </p>
-          <Figure cents={netWorth} className="text-3xl font-semibold sm:text-4xl" />
+    <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {cards.map((c) => (
+        <div key={c.label} className="card p-5">
+          <dt className="text-sm font-medium text-ink-muted">{c.label}</dt>
+          <dd className="mt-2 text-2xl font-semibold">{c.value}</dd>
+          {c.footer && <dd className="mt-3">{c.footer}</dd>}
         </div>
-        <div className="text-right">
-          {delta !== null && prevNetWorth !== null ? (
-            <>
-              <Delta absolute={delta.absolute} percentage={delta.percentage} size="lg" />
-              <p className="mt-1 text-sm text-ink-muted">
-                {t.vs} <span className="figure">{formatEurCents(prevNetWorth)}</span>
-              </p>
-            </>
-          ) : (
-            <p className="text-sm italic text-ink-muted">{t.noPreviousSnapshot}</p>
-          )}
-        </div>
-      </div>
-
-      {/* The month's cash flow: income, expenses, and the surplus or deficit */}
-      <dl className="grid gap-x-6 gap-y-2 pt-5 sm:grid-cols-3">
-        {monthlyFigures.map(({ label, cents }) => (
-          <div key={label} className="flex items-baseline justify-between gap-3 sm:block">
-            <dt className="text-xs font-medium uppercase tracking-wide text-ink-muted sm:mb-1">
-              {label}
-            </dt>
-            <dd>
-              <Figure cents={cents} className="text-base font-medium sm:text-lg" />
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </div>
+      ))}
+    </dl>
   );
 }

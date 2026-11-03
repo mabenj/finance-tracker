@@ -10,6 +10,10 @@ export default {
       colors: {
         paper: 'var(--paper)',
         sheet: 'var(--sheet)',
+        side: 'var(--side)',
+        topbar: 'var(--topbar)',
+        neutralWash: 'var(--neutral-wash)',
+        track: 'var(--track)',
         ink: {
           DEFAULT: 'var(--ink)',
           muted: 'var(--ink-muted)',
@@ -18,7 +22,10 @@ export default {
         accent: {
           DEFAULT: 'var(--accent)',
           hover: 'var(--accent-hover)',
+          2: 'var(--accent-2)',
           wash: 'var(--accent-wash)',
+          ink: 'var(--accent-ink)',
+          'ink-hover': 'var(--accent-ink-hover)',
         },
         gain: {
           DEFAULT: 'var(--gain)',
@@ -40,15 +47,13 @@ export default {
         onFill: 'var(--on-fill)',
       },
       fontFamily: {
-        display: ['Spectral', 'Georgia', 'serif'],
-        sans: ['"Public Sans Variable"', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['"IBM Plex Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        sans: ['"Inter Variable"', 'system-ui', '-apple-system', 'sans-serif'],
       },
       borderRadius: {
-        mark: '2px',
-        field: '4px',
-        control: '6px',
-        card: '8px',
+        mark: '6px',
+        field: '8px',
+        control: '8px',
+        card: '12px',
       },
       boxShadow: {
         sheet: 'var(--shadow-sheet)',

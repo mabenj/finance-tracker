@@ -113,26 +113,26 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
     };
   }
 
-  const th = 'py-2 px-3 font-medium text-xs uppercase tracking-wide text-ink-muted';
-  const td = 'py-2 px-3';
+  const th = 'px-5 py-3 text-sm font-medium text-ink-muted';
+  const td = 'px-5 py-3.5';
 
   function renderEditRow(id?: number, carriedAmount: number | null = null) {
     const save = () => saveRow(id);
     return (
       <tr key={id ?? 'new'} className="border-b border-rule bg-accent-wash">
-        <td className="py-1.5 px-3">
+        <td className="px-3 py-2">
           <input className="field" value={row.name} onChange={field('name')} onKeyDown={onKey(save)} autoFocus placeholder={t.incomeName} />
         </td>
-        <td className="py-1.5 px-3">
+        <td className="px-3 py-2">
           <div className="flex flex-col items-end gap-1">
             <input type="number" step="1" min="0" className="field text-right" value={row.amount} onChange={currencyField('amount')} onKeyDown={onKey(save)} aria-label={t.amount} />
             <CarriedHint recurrence={row.recurrence} carriedAmount={carriedAmount} />
           </div>
         </td>
-        <td className="py-1.5 px-3">
+        <td className="px-3 py-2">
           <input className="field" list={datalistId} value={row.category} onChange={field('category')} onKeyDown={onKey(save)} placeholder={t.category} />
         </td>
-        <td className="py-1.5 px-3">
+        <td className="px-3 py-2">
           <RecurrenceControl
             value={row.recurrence}
             onChange={(v) => setRow((r) => ({ ...r, recurrence: v }))}
@@ -140,7 +140,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
             className="justify-center"
           />
         </td>
-        <td className="py-1.5 px-3 whitespace-nowrap text-right">
+        <td className="px-3 py-2 whitespace-nowrap text-right">
           <IconButton onClick={save} disabled={upsert.isLoading} tone="accent" title={t.confirm} aria-label={t.confirm}>
             <IconCheck className="w-4 h-4" />
           </IconButton>
@@ -162,8 +162,8 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
         ))}
       </datalist>
 
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold text-ink">{t.income}</h2>
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <h2 className="text-xl font-bold text-ink">{t.income}</h2>
         {editMode && editingId !== 'new' && (
           <Button
             variant="secondary"
@@ -178,14 +178,18 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-base">
             <thead>
-              <tr className="border-b border-rule bg-paper text-left">
+              <tr className="border-b border-rule text-left">
                 <th className={th}>{t.name}</th>
                 <th className={`${th} text-right`}>{t.amount}</th>
-                <th className={th}>{t.category}</th>
-                <th className={`${th} text-center`}>{t.recurring}</th>
-                {editMode && <th className={`${th} w-24`} />}
+                {editMode && (
+                  <>
+                    <th className={th}>{t.category}</th>
+                    <th className={`${th} text-center`}>{t.recurring}</th>
+                    <th className={`${th} w-24`} />
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -194,17 +198,28 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
                   renderEditRow(inc.id, inc.carried_amount)
                 ) : (
                   <tr key={inc.id} className="border-b border-rule last:border-0 hover:bg-paper">
-                    <td className={`${td} text-ink`}>{inc.name}</td>
+                    <td className={td}>
+                      {/* Read-only rows fold category and recurrence under the name to stay narrow. */}
+                      <span className="flex items-center gap-2 text-ink">
+                        {inc.name}
+                        {!editMode && <RecurrenceMarker recurrence={inc.recurrence} />}
+                      </span>
+                      {!editMode && inc.category && <span className="block text-sm text-ink-muted">{inc.category}</span>}
+                    </td>
                     <td className={`${td} text-right`}>
                       <div className="flex flex-col items-end">
                         <Figure cents={inc.amount} />
                         <CarriedHint recurrence={inc.recurrence} carriedAmount={inc.carried_amount} />
                       </div>
                     </td>
-                    <td className={`${td} text-ink-muted`}>{inc.category}</td>
-                    <td className={`${td} text-center`}>
-                      <RecurrenceMarker recurrence={inc.recurrence} emptyDash />
-                    </td>
+                    {editMode && (
+                      <td className={`${td} text-ink-muted`}>{inc.category}</td>
+                    )}
+                    {editMode && (
+                      <td className={`${td} text-center`}>
+                        <RecurrenceMarker recurrence={inc.recurrence} emptyDash />
+                      </td>
+                    )}
                     {editMode && (
                       <td className={`${td} whitespace-nowrap text-right`}>
                         <ReorderButtons
@@ -215,10 +230,10 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
                           onMoveDown={() => move(index, 'down')}
                         />
                         <IconButton onClick={() => startEdit(inc)} tone="accent" title={t.edit} aria-label={t.edit}>
-                          <IconPencil className="w-3.5 h-3.5" />
+                          <IconPencil className="w-4 h-4" />
                         </IconButton>
                         <IconButton onClick={() => setPendingDeleteId(inc.id)} tone="loss" title={t.delete} aria-label={t.delete}>
-                          <IconTrash className="w-3.5 h-3.5" />
+                          <IconTrash className="w-4 h-4" />
                         </IconButton>
                       </td>
                     )}
@@ -229,14 +244,12 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
             </tbody>
             {(incomes.length > 0 || editingId === 'new') && (
               <tfoot>
-                <tr className="bg-paper">
-                  <td className="rule-subtotal py-2 px-3 text-xs font-medium uppercase tracking-wide text-ink-muted">
-                    {t.total}
+                <tr className="border-t border-rule font-semibold">
+                  <td className={td}>{t.total}</td>
+                  <td className={`${td} text-right`}>
+                    <Figure cents={total} />
                   </td>
-                  <td className="rule-subtotal py-2 px-3 text-right">
-                    <Figure cents={total} className="font-semibold" />
-                  </td>
-                  <td className="rule-subtotal" colSpan={editMode ? 3 : 2} />
+                  {editMode && <td colSpan={3} />}
                 </tr>
               </tfoot>
             )}
@@ -244,7 +257,7 @@ export function IncomeSection({ snapshotId, incomes, editMode, onUpdate }: Props
         </div>
 
         {incomes.length === 0 && editingId !== 'new' && (
-          <div className="py-8 text-center text-sm text-ink-muted">
+          <div className="px-5 py-10 text-center text-base text-ink-muted">
             {editMode ? t.noIncomeEdit : t.noIncomeView}
           </div>
         )}

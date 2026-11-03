@@ -100,7 +100,7 @@ export function CategoryPicker({ snapshotId, categories, value, onChange, onCate
 
         return (
           <span key={level} className="flex items-center gap-1.5">
-            {level > 0 && <span className="text-xs text-ink-muted">›</span>}
+            {level > 0 && <span className="text-sm text-ink-muted">›</span>}
 
             {newLevel === level ? (
               <span className="flex items-center gap-1">
@@ -118,7 +118,7 @@ export function CategoryPicker({ snapshotId, categories, value, onChange, onCate
                 <button
                   onClick={submitNew}
                   disabled={create.isLoading}
-                  className="rounded-mark bg-accent px-2 py-1 text-xs font-medium text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
+                  className="rounded-mark bg-accent px-2 py-1 text-sm font-medium text-onFill transition-colors hover:bg-accent-hover disabled:opacity-50"
                 >
                   {t.add}
                 </button>

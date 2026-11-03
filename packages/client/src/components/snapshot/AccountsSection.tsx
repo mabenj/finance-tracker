@@ -8,6 +8,7 @@ import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Figure } from '../ui/Figure';
 import { Delta } from '../ui/Delta';
+import { Badge } from '../ui/Badge';
 import { IconButton } from '../ui/IconButton';
 import { IconPlus, IconPencil, IconTrash, IconCheck, IconX } from '../ui/icons';
 import { computeAccountChanges, type AccountChangeRow } from '../../lib/net-worth';
@@ -132,8 +133,8 @@ export function AccountsSection({ snapshotId, accounts, previousAccounts, editMo
     };
   }
 
-  const th = 'py-2 px-3 font-medium text-xs uppercase tracking-wide text-ink-muted';
-  const td = 'py-2 px-3';
+  const th = 'px-5 py-3 text-sm font-medium text-ink-muted';
+  const td = 'px-5 py-3.5';
   // Kategoria and Maksettu yhteensä give way on narrow screens so the Muutos column fits.
   const wideOnly = 'hidden sm:table-cell';
 
@@ -163,30 +164,30 @@ export function AccountsSection({ snapshotId, accounts, previousAccounts, editMo
     const save = () => saveRow(id);
     return (
       <tr key={id ?? 'new'} className="border-b border-rule bg-accent-wash">
-        <td className="py-1.5 px-3">
+        <td className="px-3 py-2">
           <input className="field" value={row.name} onChange={field('name')} onKeyDown={onKey(save)} autoFocus placeholder={t.accountName} />
           {/* Kategoria's own column is hidden on narrow screens; keep it editable here. */}
           <input className="field mt-1.5 sm:hidden" value={row.category} onChange={field('category')} onKeyDown={onKey(save)} placeholder={t.category} />
         </td>
-        <td className="py-1.5 px-3">
+        <td className="px-3 py-2">
           <select className="field" value={row.type} onChange={field('type')} aria-label={t.type}>
             <option value="asset">{t.accountType.asset}</option>
             <option value="liability">{t.accountType.liability}</option>
           </select>
         </td>
-        <td className={`py-1.5 px-3 ${wideOnly}`}>
+        <td className={`px-3 py-2 ${wideOnly}`}>
           <input className="field" value={row.category} onChange={field('category')} onKeyDown={onKey(save)} placeholder={t.category} />
         </td>
-        <td className="py-1.5 px-3">
+        <td className="px-3 py-2">
           <input type="number" step="1" min="0" className="field text-right" value={row.balance} onChange={currencyField('balance')} onKeyDown={onKey(save)} aria-label={t.balance} />
           {/* Maksettu yhteensä's own column is hidden on narrow screens; keep it editable here. */}
           <input type="number" step="1" min="0" className="field mt-1.5 text-right sm:hidden" value={row.totalPaid} onChange={currencyField('totalPaid')} onKeyDown={onKey(save)} placeholder={t.totalPaid} aria-label={t.totalPaid} />
         </td>
-        {showChange && <td className="py-1.5 px-3" />}
-        <td className={`py-1.5 px-3 ${wideOnly}`}>
+        {showChange && <td className="px-3 py-2" />}
+        <td className={`px-3 py-2 ${wideOnly}`}>
           <input type="number" step="1" min="0" className="field text-right" value={row.totalPaid} onChange={currencyField('totalPaid')} onKeyDown={onKey(save)} placeholder="—" aria-label={t.totalPaid} />
         </td>
-        <td className="py-1.5 px-3 whitespace-nowrap text-right">
+        <td className="px-3 py-2 whitespace-nowrap text-right">
           <IconButton onClick={save} disabled={upsert.isLoading} tone="accent" title={t.confirm} aria-label={t.confirm}>
             <IconCheck className="w-4 h-4" />
           </IconButton>
@@ -200,8 +201,11 @@ export function AccountsSection({ snapshotId, accounts, previousAccounts, editMo
 
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold text-ink">{t.accounts}</h2>
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <h2 className="flex items-baseline gap-3 text-xl font-bold text-ink">
+          {t.accounts}
+          {accounts.length > 0 && <span className="text-sm font-normal text-ink-muted">{t.accountCount(accounts.length)}</span>}
+        </h2>
         {editMode && editingId !== 'new' && (
           <Button
             variant="secondary"
@@ -219,9 +223,9 @@ export function AccountsSection({ snapshotId, accounts, previousAccounts, editMo
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-base">
             <thead>
-              <tr className="border-b border-rule bg-paper text-left">
+              <tr className="border-b border-rule text-left">
                 <th className={th}>{t.name}</th>
                 <th className={th}>{t.type}</th>
                 <th className={`${th} ${wideOnly}`}>{t.category}</th>
@@ -238,7 +242,9 @@ export function AccountsSection({ snapshotId, accounts, previousAccounts, editMo
                 ) : (
                   <tr key={acc.id} className="border-b border-rule last:border-0 hover:bg-paper">
                     <td className={`${td} text-ink`}>{acc.name}</td>
-                    <td className={`${td} text-ink-muted`}>{typeLabel(acc.type)}</td>
+                    <td className={td}>
+                      <Badge tone={acc.type === 'asset' ? 'accent' : 'neutral'}>{typeLabel(acc.type)}</Badge>
+                    </td>
                     <td className={`${td} ${wideOnly} text-ink-muted`}>{acc.category}</td>
                     <td className={`${td} text-right`}>
                       <Figure cents={acc.balance} />
@@ -261,10 +267,10 @@ export function AccountsSection({ snapshotId, accounts, previousAccounts, editMo
                           onMoveDown={() => move(index, 'down')}
                         />
                         <IconButton onClick={() => startEdit(acc)} tone="accent" title={t.edit} aria-label={t.edit}>
-                          <IconPencil className="w-3.5 h-3.5" />
+                          <IconPencil className="w-4 h-4" />
                         </IconButton>
                         <IconButton onClick={() => setPendingDeleteId(acc.id)} tone="loss" title={t.delete} aria-label={t.delete}>
-                          <IconTrash className="w-3.5 h-3.5" />
+                          <IconTrash className="w-4 h-4" />
                         </IconButton>
                       </td>
                     )}
@@ -295,7 +301,7 @@ export function AccountsSection({ snapshotId, accounts, previousAccounts, editMo
         </div>
 
         {accounts.length === 0 && editingId !== 'new' && (
-          <div className="py-8 text-center text-sm text-ink-muted">{t.noAccounts}</div>
+          <div className="px-5 py-10 text-center text-base text-ink-muted">{t.noAccounts}</div>
         )}
       </div>
 

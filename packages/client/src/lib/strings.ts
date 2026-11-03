@@ -40,6 +40,14 @@ export const t = {
   selectPlaceholder: "— valitse —",
   addNew: "+ Uusi…",
 
+  // ── App shell ─────────────────────────────────────────────────────
+  appName: "Talous",
+  overview: "Yleiskatsaus",
+  openMenu: "Avaa valikko",
+  closeMenu: "Sulje valikko",
+  previousMonth: "Edellinen kuukausi",
+  nextMonth: "Seuraava kuukausi",
+
   // ── Dashboard ─────────────────────────────────────────────────────
   dashboardTitle: "Kuukausikatsaukset",
   newSnapshot: "Uusi kuukausikatsaus",
@@ -63,11 +71,9 @@ export const t = {
     `Tämä poistaa pysyvästi kuukausikatsauksen ${monthYear} sekä kaikki sen tilit, tulot ja menot.`,
 
   // ── Snapshot page ─────────────────────────────────────────────────
+  snapshotLabel: "Kuukausikatsaus",
   snapshotNotFound: "Kuukausikatsausta ei löytynyt.",
   backToDashboard: "Takaisin etusivulle",
-  dashboardLink: "Etusivu",
-  viewMode: "Katselutila",
-  editMode: "Muokkaustila",
   switchToDark: "Vaihda tummaan tilaan",
   switchToLight: "Vaihda vaaleaan tilaan",
 
@@ -80,6 +86,7 @@ export const t = {
   totalPaid: "Maksettu yhteensä",
   accountChange: "Muutos",
   accountGone: "Ei enää tässä kuukausikatsauksessa",
+  accountCount: (n: number) => `${n} ${plural(n, "tili", "tiliä")}`,
   accountType: { asset: "Vara", liability: "Velka" } as Record<string, string>,
   noAccounts: "Ei tilejä vielä — siirry muokkaustilaan lisätäksesi.",
   deleteAccountTitle: "Poistetaanko tili?",

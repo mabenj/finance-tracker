@@ -27,8 +27,8 @@ interface Props {
 }
 
 // Shared column widths keep every figure in a straight ledger column across rows.
-const COL_NET = 'w-28 text-right';
-const COL_CHANGE = 'w-36 text-right';
+const COL_NET = 'w-36 text-right';
+const COL_CHANGE = 'w-48 text-right';
 
 export function SnapshotList({ snapshots, isLoading, onCreateClick }: Props) {
   const navigate = useNavigate();
@@ -52,7 +52,7 @@ export function SnapshotList({ snapshots, isLoading, onCreateClick }: Props) {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="flex items-center justify-between px-4 py-3.5 border-b border-rule last:border-0"
+            className="flex items-center justify-between border-b border-rule px-5 py-4 last:border-0"
           >
             <div className="h-4 w-32 rounded-mark bg-rule motion-safe:animate-pulse" />
             <div className="h-4 w-24 rounded-mark bg-rule motion-safe:animate-pulse" />
@@ -66,14 +66,14 @@ export function SnapshotList({ snapshots, isLoading, onCreateClick }: Props) {
     return (
       <div className="card flex flex-col items-center gap-4 px-6 py-14 text-center">
         <div
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-wash text-accent"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-wash text-accent-ink"
           aria-hidden="true"
         >
           <IconPlus className="w-6 h-6" />
         </div>
         <div>
-          <p className="font-display text-lg font-semibold text-ink">{t.noSnapshots}</p>
-          <p className="mt-1 max-w-xs text-sm text-ink-muted">{t.noSnapshotsHint}</p>
+          <p className="text-lg font-semibold text-ink">{t.noSnapshots}</p>
+          <p className="mt-1 max-w-xs text-base text-ink-muted">{t.noSnapshotsHint}</p>
         </div>
         <Button onClick={onCreateClick}>
           <IconPlus />
@@ -85,54 +85,55 @@ export function SnapshotList({ snapshots, isLoading, onCreateClick }: Props) {
 
   return (
     <>
-      {/* Column header — the statement's ledger labels */}
-      <div className="mb-1.5 hidden items-center px-4 text-xs font-medium uppercase tracking-wide text-ink-muted sm:flex">
-        <span className="flex-1">{t.month}</span>
-        <span className={COL_NET}>{t.netWorth}</span>
-        <span className={COL_CHANGE}>{t.change}</span>
-        <span className="w-10" />
+      <div className="card overflow-hidden">
+        <div className="hidden items-center border-b border-rule px-5 py-3 text-sm font-medium text-ink-muted sm:flex">
+          <span className="flex-1">{t.month}</span>
+          <span className={COL_NET}>{t.netWorth}</span>
+          <span className={COL_CHANGE}>{t.change}</span>
+          <span className="w-12" />
+        </div>
+
+        <ul className="divide-y divide-rule">
+          {snapshots.map((snap) => {
+            const deltaInfo =
+              snap.previousNetWorth !== null
+                ? computeNetWorthDelta(snap.netWorth, snap.previousNetWorth)
+                : null;
+
+            return (
+              <li key={snap.id} className="group flex items-stretch">
+                <button
+                  onClick={() => navigate(`/snapshots/${snap.id}`)}
+                  className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-1 px-5 py-4 text-left text-base transition-colors hover:bg-paper"
+                >
+                  <span className="min-w-[7rem] flex-1 truncate font-medium text-ink transition-colors group-hover:text-accent-ink">
+                    {formatMonthYear(snap.year, snap.month)}
+                  </span>
+                  <span className={COL_NET}>
+                    <Figure cents={snap.netWorth} />
+                  </span>
+                  <span className={`${COL_CHANGE} flex justify-end`}>
+                    {deltaInfo !== null ? (
+                      <Delta absolute={deltaInfo.absolute} percentage={deltaInfo.percentage} size="sm" />
+                    ) : (
+                      <span className="text-ink-faint">—</span>
+                    )}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setPendingDeleteId(snap.id)}
+                  title={t.delete}
+                  aria-label={`${t.delete}: ${formatMonthYear(snap.year, snap.month)}`}
+                  className="flex w-12 shrink-0 items-center justify-center text-ink-faint transition-colors hover:bg-loss-wash hover:text-loss"
+                >
+                  <IconTrash className="w-4 h-4" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       </div>
-
-      <ul className="card divide-y divide-rule overflow-hidden">
-        {snapshots.map((snap) => {
-          const deltaInfo =
-            snap.previousNetWorth !== null
-              ? computeNetWorthDelta(snap.netWorth, snap.previousNetWorth)
-              : null;
-
-          return (
-            <li key={snap.id} className="group flex items-stretch">
-              <button
-                onClick={() => navigate(`/snapshots/${snap.id}`)}
-                className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-1 rounded-l-card px-4 py-3.5 text-left transition-colors hover:bg-paper"
-              >
-                <span className="min-w-[7rem] flex-1 truncate font-medium text-ink transition-colors group-hover:text-accent">
-                  {formatMonthYear(snap.year, snap.month)}
-                </span>
-                <span className={`${COL_NET} text-sm`}>
-                  <Figure cents={snap.netWorth} />
-                </span>
-                <span className={`${COL_CHANGE} flex justify-end`}>
-                  {deltaInfo !== null ? (
-                    <Delta absolute={deltaInfo.absolute} percentage={deltaInfo.percentage} size="sm" />
-                  ) : (
-                    <span className="figure text-sm text-ink-muted">—</span>
-                  )}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setPendingDeleteId(snap.id)}
-                title={t.delete}
-                aria-label={`${t.delete}: ${formatMonthYear(snap.year, snap.month)}`}
-                className="flex w-11 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-loss-wash hover:text-loss sm:w-10"
-              >
-                <IconTrash className="w-4 h-4" />
-              </button>
-            </li>
-          );
-        })}
-      </ul>
 
       <Modal
         open={pendingSnap !== null}

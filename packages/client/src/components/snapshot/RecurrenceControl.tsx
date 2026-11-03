@@ -74,12 +74,12 @@ export function RecurrenceMarker({
   className?: string;
 }) {
   if (recurrence === 'fixed') {
-    return <span className={cn('text-xs text-ink-muted', className)} title={t.recurrenceFixedTooltip}>↻</span>;
+    return <span className={cn('text-sm text-ink-muted', className)} title={t.recurrenceFixedTooltip}>↻</span>;
   }
   if (recurrence === 'variable') {
-    return <span className={cn('text-xs text-ink-muted', className)} title={t.recurrenceVariableTooltip}>↻⁰</span>;
+    return <span className={cn('text-sm text-ink-muted', className)} title={t.recurrenceVariableTooltip}>↻⁰</span>;
   }
-  return emptyDash ? <span className="text-xs text-ink-muted">—</span> : null;
+  return emptyDash ? <span className="text-sm text-ink-muted">—</span> : null;
 }
 
 // The "ed. kk" ghost hint: last month's carried amount, shown beside the current
@@ -99,7 +99,7 @@ export function CarriedHint({
   if (recurrence !== 'variable' || carriedAmount === null) return null;
   return (
     <span
-      className={cn('figure text-xs text-ink-muted', className)}
+      className={cn('figure text-sm text-ink-muted', className)}
       title={t.carriedHintTooltip}
     >
       {t.carriedHint(formatEurCents(carriedAmount))}
@@ -122,7 +122,7 @@ function Pill({
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        'px-2 py-0.5 text-xs font-medium transition-colors',
+        'px-2.5 py-1 text-sm font-medium transition-colors',
         selected ? 'bg-accent text-onFill' : 'bg-sheet text-ink-muted hover:text-ink'
       )}
     >

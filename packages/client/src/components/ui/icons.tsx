@@ -67,23 +67,6 @@ export function IconArrowDown({ className }: IconProps) {
   );
 }
 
-export function IconArrowLeft({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={base(className)} aria-hidden="true">
-      <path d="M11 5l-5 5 5 5M6 10h9" />
-    </svg>
-  );
-}
-
-export function IconEye({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={base(className)} aria-hidden="true">
-      <path d="M1.5 10S4.5 4.5 10 4.5 18.5 10 18.5 10 15.5 15.5 10 15.5 1.5 10 1.5 10z" />
-      <circle cx="10" cy="10" r="2.5" />
-    </svg>
-  );
-}
-
 export function IconSun({ className }: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={base(className)} aria-hidden="true">
@@ -110,6 +93,23 @@ export function IconChevron({ className, expanded }: IconProps & { expanded?: bo
       aria-hidden="true"
     >
       <path fillRule="evenodd" d="M7.3 5.3a1 1 0 011.4 0l4 4a1 1 0 010 1.4l-4 4a1 1 0 01-1.4-1.4L10.6 10 7.3 6.7a1 1 0 010-1.4z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+export function IconMenu({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" className={cn('w-5 h-5', className)} aria-hidden="true">
+      <path d="M3.5 6h13M3.5 10h13M3.5 14h13" />
+    </svg>
+  );
+}
+
+// Left-pointing chevron; mirror with `rotate-180` for "next".
+export function IconChevronLeft({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={cn('w-5 h-5', className)} aria-hidden="true">
+      <path d="M12.5 4.5L7 10l5.5 5.5" />
     </svg>
   );
 }

@@ -56,9 +56,6 @@ interface Props {
   onUpdate: () => void;
 }
 
-// Full-bleed width for the Sankey so wide flows have room to breathe.
-const FULL_BLEED = 'relative left-1/2 -translate-x-1/2 w-[min(96rem,calc(100vw-2rem))]';
-
 export function SnapshotDetail({ snapshot, editMode, onUpdate }: Props) {
   const [sankeyOpen, setSankeyOpen] = useState(false);
   // Spec §6.1 / §6.2 E: Sankey must be collapsed when entering edit mode.
@@ -66,8 +63,26 @@ export function SnapshotDetail({ snapshot, editMode, onUpdate }: Props) {
     if (editMode) setSankeyOpen(false);
   }, [editMode]);
 
+  const income = (
+    <IncomeSection
+      snapshotId={snapshot.id}
+      incomes={snapshot.incomes}
+      editMode={editMode}
+      onUpdate={onUpdate}
+    />
+  );
+  const expenses = (
+    <ExpenseTree
+      snapshotId={snapshot.id}
+      expenses={snapshot.expenses}
+      categories={snapshot.categories}
+      editMode={editMode}
+      onUpdate={onUpdate}
+    />
+  );
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <NetWorthComparison
         accounts={snapshot.accounts}
         previousAccounts={snapshot.previousSnapshot?.accounts ?? null}
@@ -83,31 +98,29 @@ export function SnapshotDetail({ snapshot, editMode, onUpdate }: Props) {
         onUpdate={onUpdate}
       />
 
-      <IncomeSection
-        snapshotId={snapshot.id}
-        incomes={snapshot.incomes}
-        editMode={editMode}
-        onUpdate={onUpdate}
-      />
-
-      <ExpenseTree
-        snapshotId={snapshot.id}
-        expenses={snapshot.expenses}
-        categories={snapshot.categories}
-        editMode={editMode}
-        onUpdate={onUpdate}
-      />
+      {/* Side by side when reading; stacked while editing so the inline forms have room. */}
+      {editMode ? (
+        <>
+          {income}
+          {expenses}
+        </>
+      ) : (
+        <div className="grid gap-10 xl:grid-cols-5">
+          <div className="xl:col-span-2">{income}</div>
+          <div className="xl:col-span-3">{expenses}</div>
+        </div>
+      )}
 
       {/* Sankey Diagram — collapsible while editing, always shown when viewing */}
       {editMode ? (
-        <div className={`card overflow-hidden ${FULL_BLEED}`}>
+        <div className="card overflow-hidden">
           <button
-            className="flex w-full items-center justify-between px-6 py-3 text-sm font-medium text-ink transition-colors hover:bg-paper"
+            className="flex w-full items-center justify-between px-5 py-4 text-base font-semibold text-ink transition-colors hover:bg-paper"
             onClick={() => setSankeyOpen((o) => !o)}
             aria-expanded={sankeyOpen}
           >
-            <span className="font-display">{t.sankeyHeadingCollapsible}</span>
-            <IconChevron expanded={sankeyOpen} className="w-4 h-4 text-ink-muted" />
+            <span>{t.sankeyHeadingCollapsible}</span>
+            <IconChevron expanded={sankeyOpen} className="w-5 h-5 text-ink-muted" />
           </button>
           {sankeyOpen && (
             <div className="px-6 pb-6">
@@ -120,14 +133,16 @@ export function SnapshotDetail({ snapshot, editMode, onUpdate }: Props) {
           )}
         </div>
       ) : (
-        <div className={`card p-6 ${FULL_BLEED}`}>
-          <h2 className="mb-4 font-display text-lg font-semibold text-ink">{t.sankeyHeading}</h2>
-          <SankeyDiagram
-            incomes={snapshot.incomes}
-            expenses={snapshot.expenses}
-            categories={snapshot.categories}
-          />
-        </div>
+        <section>
+          <h2 className="mb-4 text-xl font-bold text-ink">{t.sankeyHeading}</h2>
+          <div className="card p-6">
+            <SankeyDiagram
+              incomes={snapshot.incomes}
+              expenses={snapshot.expenses}
+              categories={snapshot.categories}
+            />
+          </div>
+        </section>
       )}
     </div>
   );

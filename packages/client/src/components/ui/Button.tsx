@@ -9,20 +9,20 @@ interface Props extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: Size;
 }
 
-// Solid fills carry white text; the accent stays quiet and is the only place
-// brand color appears on an action. Focus is handled globally via :focus-visible.
+// The primary action is the one solid accent fill on screen; everything else
+// stays neutral. Focus is handled globally via :focus-visible.
 const VARIANTS: Record<Variant, string> = {
   primary: 'bg-accent text-onFill hover:bg-accent-hover shadow-sheet',
-  secondary: 'bg-sheet text-ink border border-rule-strong hover:bg-paper hover:border-ink-faint',
+  secondary: 'bg-sheet text-ink border border-rule-strong hover:bg-paper',
   danger: 'bg-loss text-onFill hover:bg-loss-hover shadow-sheet',
   ghost: 'text-ink-muted hover:text-ink hover:bg-paper',
-  link: 'text-accent hover:text-accent-hover hover:underline underline-offset-2 px-0',
+  link: 'text-accent-ink hover:text-accent-ink-hover hover:underline underline-offset-2 px-0',
 };
 
-// 44px min-height on touch viewports (quality floor), tightening to 36px on ≥sm.
+// 44px min-height on touch viewports (quality floor), tightening to 40px on ≥sm.
 const SIZES: Record<Size, string> = {
-  sm: 'text-sm px-3 min-h-[2.5rem] sm:min-h-[2rem]',
-  md: 'text-sm px-4 min-h-[2.75rem] sm:min-h-[2.25rem]',
+  sm: 'text-sm px-3 min-h-[2.5rem] sm:min-h-[2.25rem]',
+  md: 'text-sm px-4 min-h-[2.75rem] sm:min-h-[2.5rem]',
 };
 
 export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
@@ -34,7 +34,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
       ref={ref}
       type={type}
       className={cn(
-        'inline-flex items-center justify-center gap-1.5 rounded-control font-medium',
+        'inline-flex items-center justify-center gap-1.5 rounded-control font-semibold',
         'transition-colors duration-100',
         'disabled:opacity-50 disabled:pointer-events-none',
         variant !== 'link' && SIZES[size],
