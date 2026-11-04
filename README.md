@@ -2,9 +2,17 @@
 
 A personal, self-hosted finance tracker built around monthly **snapshots**. Each month records your accounts (assets and liabilities), incomes, and a tree of expense categories. Creating a new month copies the previous one forward: accounts and recurring items come along, one-offs don't.
 
-The app shows net worth over time, month-over-month changes per account, and a Sankey diagram of where the month's income went. The UI is in Finnish, and all amounts are in EUR.
+The app shows net worth month by month, month-over-month changes per account, and a Sankey diagram of where the month's income went. The UI is in Finnish, and all amounts are in EUR.
 
 **Stack:** Bun · tRPC · SQLite (`bun:sqlite`) · React · Vite · Tailwind · D3-Sankey
+
+![A month: net worth, income, expenses and surplus, with every account's change since last month](docs/screenshots/month.png)
+
+| Where the month's income went (dark theme) | Starting a new month |
+|---|---|
+| ![Sankey diagram of income flowing into expense categories and surplus](docs/screenshots/sankey-dark.png) | ![The new-month wizard, with last month's balances next to empty inputs](docs/screenshots/new-month.png) |
+
+<sub>Screenshots use made-up sample data.</sub>
 
 ## Setup
 
