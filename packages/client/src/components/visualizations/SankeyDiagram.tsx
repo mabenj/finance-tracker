@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { sankeyLinkHorizontal } from 'd3-sankey';
 import { buildSankeyGraph } from '../../lib/sankey-builder';
@@ -40,6 +40,16 @@ export function SankeyDiagram({ incomes, expenses, categories }: Props) {
     label: string;
     value: number;
   } | null>(null);
+  // A state ref, not useRef: the container only mounts once there is data to draw.
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>();
+
+  useLayoutEffect(() => {
+    if (!container) return;
+    const observer = new ResizeObserver(([entry]) => setContainerWidth(entry.contentRect.width));
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [container]);
 
   const graph = buildSankeyGraph(incomes, expenses, categories);
 
@@ -47,10 +57,10 @@ export function SankeyDiagram({ incomes, expenses, categories }: Props) {
     return <p className="text-base text-ink-muted">{t.sankeyNoData}</p>;
   }
 
-  const { nodes, links, width, height } = layoutSankey(graph);
+  const { nodes, links, width, height } = layoutSankey(graph, containerWidth);
 
   return (
-    <div className="relative w-full overflow-x-auto">
+    <div ref={setContainer} className="relative w-full overflow-x-auto">
       <svg
         width={width}
         height={height}
@@ -89,8 +99,8 @@ export function SankeyDiagram({ incomes, expenses, categories }: Props) {
           const n = node as PositionedNode;
           const h = Math.max(1, n.y1 - n.y0);
           const isDashed = n.type === 'deficit' || n.type === 'unspecified-income';
-          // Leaf expenses always label to their right (outward); other nodes flip by side.
-          const labelOnLeft = n.type === 'expense' ? false : n.x0 > width / 2;
+          // Every label sits right of its node, so a gap between two columns only ever holds
+          // the labels of the column on its left, and they cannot collide.
           const cy = (n.y0 + n.y1) / 2;
 
           return (
@@ -115,10 +125,9 @@ export function SankeyDiagram({ incomes, expenses, categories }: Props) {
               />
               {/* Every node is labelled — NODE_PADDING guarantees room even for slivers. */}
               <text
-                x={labelOnLeft ? n.x0 - 6 : n.x1 + 6}
+                x={n.x1 + 6}
                 y={cy}
                 dy="0.35em"
-                textAnchor={labelOnLeft ? 'end' : 'start'}
                 fontSize={LABEL_FONT_PX}
                 className="select-none [fill:var(--ink)]"
               >

@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'bun:test';
 import { buildSankeyGraph } from './sankey-builder';
-import { layoutSankey, MIN_HEIGHT, SLOT_PX } from './sankey-layout';
+import { layoutSankey, MIN_COL_HOP, MIN_HEIGHT, SLOT_PX } from './sankey-layout';
 
 const salary = { id: 1, name: 'Salary', amount: 300000 };
 const bonus = { id: 2, name: 'Bonus', amount: 200000 };
@@ -109,6 +109,23 @@ describe('layoutSankey', () => {
       )
     ); // max depth 4 (budget→Housing→Utilities→Bill)
     expect(deep.width).toBeGreaterThan(flat.width);
+  });
+
+  test('fits a narrower container by shortening column hops, so the last labels stay visible', () => {
+    const roomy = layoutSankey(normalGraph());
+    const fitted = layoutSankey(normalGraph(), roomy.width - 200);
+    expect(fitted.width).toBe(roomy.width - 200);
+    const rightmost = Math.max(...fitted.nodes.map((n) => n.x1));
+    expect(rightmost).toBeLessThan(fitted.width - 150); // room left for the last column's labels
+  });
+
+  test('never grows past its natural width, and stops shrinking at MIN_COL_HOP', () => {
+    const roomy = layoutSankey(normalGraph());
+    expect(layoutSankey(normalGraph(), roomy.width + 500).width).toBe(roomy.width);
+
+    const tiny = layoutSankey(normalGraph(), 100);
+    const columns = [...new Set(tiny.nodes.map((n) => Math.round(n.x0)))].sort((a, b) => a - b);
+    expect(columns[1] - columns[0]).toBeGreaterThanOrEqual(MIN_COL_HOP - 1);
   });
 
   test('Budget sits left of Expenses, which sits left of categories and their expenses', () => {
