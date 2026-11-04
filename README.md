@@ -27,7 +27,7 @@ npx bun run start    # serve the API and the app
 
 Then open http://localhost:3001.
 
-You can set `PORT` to change the port and `DB_PATH` to move the database file. To back up your data, copy `finance.db`.
+You can set `PORT` to change the port and `DB_PATH` to move the database file. Bun loads `packages/server/.env` automatically, so you can put `DB_PATH` there (see `.env.example`). To back up your data, copy the database file. Database files are gitignored, so your data stays out of the repo.
 
 ## Develop
 

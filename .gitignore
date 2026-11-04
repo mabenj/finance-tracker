@@ -2,3 +2,8 @@ node_modules
 dist
 .claude
 plans
+# Local data (keep personal finance data out of git)
+*.db
+*.db-*
+*.bak
+.env

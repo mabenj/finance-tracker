@@ -18,10 +18,10 @@
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-// Pin the DB to packages/server/finance.db BEFORE importing the client (which
-// resolves DB_PATH relative to cwd at import time). The client is imported
-// dynamically below so this env var is set first.
-process.env.DB_PATH = resolve(import.meta.dir, '..', 'finance.db');
+// Default the DB to packages/server/finance.db (unless DB_PATH is set) BEFORE
+// importing the client, which resolves DB_PATH relative to cwd at import time.
+// The client is imported dynamically below so this env var is set first.
+process.env.DB_PATH ??= resolve(import.meta.dir, '..', 'finance.db');
 const { db } = await import('../src/db/client.ts');
 import type { Database } from 'bun:sqlite';
 
