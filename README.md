@@ -29,6 +29,15 @@ Then open http://localhost:3001.
 
 You can set `PORT` to change the port and `DB_PATH` to move the database file. Bun loads `packages/server/.env` automatically, so you can put `DB_PATH` there (see `.env.example`). To back up your data, copy the database file. Database files are gitignored, so your data stays out of the repo.
 
+### In Docker
+
+The `Dockerfile` builds the client and serves it with the API on port 3001. It keeps the database at `/data/finance.db`, so mount a folder there that uid 1000 can write:
+
+```bash
+docker build -t finance-tracker .
+docker run -p 3001:3001 -v "$PWD/data:/data" finance-tracker
+```
+
 ## Develop
 
 Start the server and the client in two separate terminals:
