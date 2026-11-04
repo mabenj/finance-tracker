@@ -2,9 +2,23 @@
 
 A personal, self-hosted finance tracker built around monthly **snapshots**. Each month records your accounts (assets and liabilities), incomes, and a tree of expense categories. Creating a new month copies the previous one forward: accounts and recurring items come along, one-offs don't.
 
-The app shows net worth over time, month-over-month changes per account, and a Sankey diagram of where the month's income went. The UI is in Finnish, and all amounts are in EUR.
+- **Net worth every month**, with how much each account changed since the month before. Loans track both what is left and what has been paid so far.
+- **Where the money went**: a Sankey diagram from income through taxes and each expense category to the month's surplus or deficit.
+- **A guided new month**: a step-by-step wizard shows last month's balances next to each input and can fill the empty ones from last month.
+- **Recurring items**: an expense or income is *one-off*, *fixed* (carried forward with its amount, e.g. rent) or *variable* (carried forward at €0, e.g. groceries).
+- **Light and dark theme**, and one SQLite file as the whole database.
+
+The UI is in Finnish, and all amounts are in EUR.
 
 **Stack:** Bun · tRPC · SQLite (`bun:sqlite`) · React · Vite · Tailwind · D3-Sankey
+
+![A month: net worth, income, expenses and surplus, with every account's change since last month](docs/screenshots/month.png)
+
+| Where the month's income went (dark theme) | Starting a new month |
+|---|---|
+| ![Sankey diagram of income flowing into expense categories and surplus](docs/screenshots/sankey-dark.png) | ![The new-month wizard, with last month's balances next to empty inputs](docs/screenshots/new-month.png) |
+
+<sub>Screenshots use made-up sample data.</sub>
 
 ## Setup
 
@@ -91,3 +105,7 @@ Workflow tips:
 - When you change architecture or commands, update `CLAUDE.md` so that future sessions start with accurate context.
 
 You can work without AI too: `CLAUDE.md` and `CONTEXT.md` are also the quickest way for a person to get oriented.
+
+## License
+
+[MIT](LICENSE)
